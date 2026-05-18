@@ -5,16 +5,16 @@
 default:
     @just --list
 
-# Start the dev environment (Postgres on localhost:5432).
-db-up:
+# Start the dev environment (Postgres and Redis, both on localhost).
+dev-up:
     docker compose -f compose-dev.yml up -d
 
-# Stop the dev environment (preserves the data volume).
-db-down:
+# Stop the dev environment (preserves the data volumes).
+dev-down:
     docker compose -f compose-dev.yml down
 
-# Wipe the data volume, bring Postgres up fresh, restore from a dump.
-db-init dump:
+# Wipe Postgres AND Redis data volumes, bring services up fresh, restore Postgres from a dump.
+dev-init dump:
     docker compose -f compose-dev.yml down -v
     docker compose -f compose-dev.yml up -d
     @echo "(waiting for postgres to accept connections)"

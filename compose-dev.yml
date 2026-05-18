@@ -16,5 +16,20 @@ services:
       timeout: 2s
       retries: 15
 
+  redis:
+    image: redis:8-alpine
+    container_name: alpha-dev-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - alpha-dev-redis:/data
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
 volumes:
   alpha-dev-pgdata:
+  alpha-dev-redis:

@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import ClassVar
 
-from pydantic import PostgresDsn
+from pydantic import HttpUrl, PostgresDsn, RedisDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The .env file (if any) lives at the repo root, two levels above this
@@ -30,7 +30,14 @@ class Settings(BaseSettings):
     )
 
     auth_token: str
+    chat_api_key: str
+    chat_base_url: HttpUrl
+    chat_model: str
     database_url: PostgresDsn
+    embedding_api_key: str
+    embedding_base_url: HttpUrl
+    embedding_model: str
+    redis_url: RedisDsn
     timezone: str
 
 
