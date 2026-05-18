@@ -65,6 +65,55 @@ def pso8601(dt: datetime | pendulum.DateTime) -> str:
     return local.format("ddd MMM D YYYY, h:mm A")
 
 
+def elapsed(earlier: datetime | pendulum.DateTime, later: datetime | pendulum.DateTime) -> str:
+    """Format the elapsed time between two datetimes in a human-friendly form.
+
+    Buckets, by elapsed time:
+        < 60s    -> "moments"
+        < 60m    -> "N minutes"
+        < 24h    -> "N hours"
+        < 48h    -> "one day"
+        < 7d     -> "N days"
+        < 8w     -> "N weeks"
+        else     -> "a long time"
+
+    Singular forms drop the "s". For a "first message of the session"
+    bucket use the literal returned for `< 60s` ("moments"); callers
+    decide whether to invoke this at all for the no-previous case.
+
+    Args:
+        earlier: The earlier datetime.
+        later: The later datetime.
+
+    Returns:
+        The elapsed string.
+    """
+
+    def _plural(n: int, unit: str) -> str:
+        return f"{n} {unit}{'' if n == 1 else 's'}"
+
+    diff = pendulum.instance(later) - pendulum.instance(earlier)
+    seconds = int(diff.total_seconds())
+
+    if seconds < 60:
+        return "moments"
+    minutes = seconds // 60
+    if minutes < 60:
+        return _plural(minutes, "minute")
+    hours = minutes // 60
+    if hours < 24:
+        return _plural(hours, "hour")
+    if hours < 48:
+        return "one day"
+    days = hours // 24
+    if days < 7:
+        return _plural(days, "day")
+    weeks = days // 7
+    if weeks < 8:
+        return _plural(weeks, "week")
+    return "a long time"
+
+
 def age(dt: datetime | pendulum.DateTime) -> str:
     """Format the age of `dt` relative to now in a human-friendly form.
 

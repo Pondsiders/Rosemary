@@ -15,7 +15,13 @@ from openai import AsyncOpenAI
 
 from alpha_server.auth import BearerTokenMiddleware
 from alpha_server.cortex import mcp
-from alpha_server.hooks.memories import router as memories_router
+
+# Side-effect imports register handlers against the shared hooks router.
+from alpha_server.hooks import (
+    memories,  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    timestamp,  # noqa: F401  # pyright: ignore[reportUnusedImport]
+)
+from alpha_server.hooks import router as hooks_router
 from alpha_server.settings import get_settings
 
 if TYPE_CHECKING:
@@ -63,7 +69,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
 app = FastAPI(lifespan=_lifespan)
 app.add_middleware(BearerTokenMiddleware)
 app.mount("/cortex", _cortex_app)
-app.include_router(memories_router, prefix="/hooks")
+app.include_router(hooks_router, prefix="/hooks")
 
 
 @app.get("/livez")

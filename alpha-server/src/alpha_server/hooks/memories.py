@@ -18,11 +18,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import numpy as np
-from fastapi import APIRouter, Request
+from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from alpha_server import clock
 from alpha_server.db import get_pool
+from alpha_server.hooks import router
 
 if TYPE_CHECKING:
     import redis.asyncio as redis
@@ -48,8 +49,6 @@ SELECT id,
  ORDER BY embedding_qwen <=> $1
  LIMIT $3
 """
-
-router = APIRouter()
 
 
 class HookEnvelope(BaseModel):
