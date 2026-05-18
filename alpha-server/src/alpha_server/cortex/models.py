@@ -17,3 +17,10 @@ class DiaryEntry(BaseModel):
     content: str = Field(description="The diary entry text.")
     created_at: str = Field(description="When the entry was stored (PSO-8601, local time).")
     age: str = Field(description="How long ago the entry was stored.")
+
+
+class DiaryResult(BaseModel):
+    """The result of appending a diary entry."""
+
+    id: int = Field(description="The id of the newly-stored entry.")
+    created_at: str = Field(description="When the entry was stored (PSO-8601, local time).")
