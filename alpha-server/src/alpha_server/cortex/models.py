@@ -24,3 +24,27 @@ class DiaryResult(BaseModel):
 
     id: int = Field(description="The id of the newly-stored entry.")
     created_at: str = Field(description="When the entry was stored (PSO-8601, local time).")
+
+
+class SearchHit(BaseModel):
+    """A single memory returned by the search tool."""
+
+    id: int = Field(description="The memory id.")
+    content: str = Field(description="The memory text.")
+    created_at: str = Field(description="When the memory was stored (PSO-8601, local time).")
+    age: str = Field(description="How long ago the memory was stored.")
+    score: float = Field(
+        description=(
+            "Relevance score. For mode='semantic', cosine similarity in [0, 1] "
+            "(higher is closer). For mode='index', raw ts_rank_cd (unbounded, "
+            "monotonic within a result set, not comparable between result sets)."
+        )
+    )
+
+
+class SearchMemoriesResult(BaseModel):
+    """The result envelope from search_memories — echoes the call's mode and query."""
+
+    mode: str = Field(description="The mode that produced these hits ('semantic' or 'index').")
+    query: str = Field(description="The search text that produced these hits.")
+    hits: list[SearchHit] = Field(description="Matching memories, ordered by descending score.")

@@ -1,7 +1,7 @@
 """The `/hooks/memories` endpoint — semantic recall on UserPromptSubmit.
 
 The pipeline:
-    prompt -> Qwen extracts queries (JSON-array constrained)
+    prompt -> chat model extracts queries (JSON-array constrained)
            -> embed each query (fan out)
            -> pgvector cosine search per query (fan out, top-1)
            -> filter out memories already seen in this session
@@ -21,13 +21,12 @@ import numpy as np
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from alpha_server import clock
+from alpha_server import clock, llm
 from alpha_server.db import get_pool
 from alpha_server.hooks import router
 
 if TYPE_CHECKING:
     import redis.asyncio as redis
-    from openai import AsyncOpenAI
 
 _EXTRACT_QUERIES_PROMPT = (Path(__file__).parent / "memories_extract_queries.md").read_text(
     encoding="utf-8"
@@ -80,15 +79,13 @@ async def memories(envelope: HookEnvelope, request: Request) -> HookResponse:
 
 async def _run(prompt: str, session_id: str, request: Request) -> str:
     """Run the recall pipeline. Returns the additionalContext string."""
-    chat_client: AsyncOpenAI = request.app.state.chat_client
-    embedding_client: AsyncOpenAI = request.app.state.embedding_client
+    chat_client = llm.get_chat_client()
+    embedding_client = llm.get_embedding_client()
     redis_client: redis.Redis = request.app.state.redis
-    chat_model: str = request.app.state.chat_model
-    embedding_model: str = request.app.state.embedding_model
 
-    # 1. Ask Qwen to decompose the prompt into semantic-search queries.
+    # 1. Ask the chat model to decompose the prompt into semantic-search queries.
     chat_response = await chat_client.chat.completions.create(
-        model=chat_model,
+        model=llm.get_chat_model(),
         messages=[
             {"role": "system", "content": _EXTRACT_QUERIES_PROMPT},
             {"role": "user", "content": prompt},
@@ -122,10 +119,9 @@ async def _run(prompt: str, session_id: str, request: Request) -> str:
         return ""
 
     # 2. Embed all queries in one batched request.
-    task = "Given a search query, retrieve relevant passages that are similar to the query"
     embedding_response = await embedding_client.embeddings.create(
-        model=embedding_model,
-        input=[f"Instruct: {task}\nQuery:{q}" for q in queries],
+        model=llm.get_embedding_model(),
+        input=[llm.format_query_for_embedding(q) for q in queries],
         timeout=15.0,
     )
     embeddings = [np.asarray(d.embedding, dtype=np.float32) for d in embedding_response.data]

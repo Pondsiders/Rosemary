@@ -13,3 +13,6 @@ build/
 # tool caches
 .pytest_cache/
 .ruff_cache/
+
+# throwaway probe scripts — not part of the repo
+scratch/

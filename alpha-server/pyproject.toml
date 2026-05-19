@@ -5,6 +5,7 @@ description = "Alpha's server"
 requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.29",
+    "dateparser>=1.2",
     "fastapi>=0.115",
     "fastmcp>=2.0",
     "numpy>=2.0",

@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 
 import redis.asyncio as redis
 from fastapi import FastAPI
-from openai import AsyncOpenAI
 
 from alpha_server.auth import BearerTokenMiddleware
 from alpha_server.cortex import mcp
@@ -32,28 +31,18 @@ _cortex_app = mcp.http_app(path="/mcp")
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """Open long-lived clients and compose the Cortex MCP lifespan.
+    """Open long-lived per-request state and compose the Cortex MCP lifespan.
 
     Born once at startup, lives for the process lifetime:
-    - chat + embedding OpenAI-protocol clients (point at Bifrost gateway)
     - redis client (seen-cache for the memories hook)
 
     The MCP session manager also needs to start before requests arrive at
     the mounted sub-app; without this hand-off, mounted tool calls hang.
+
+    LLM clients and the database pool are lazy module-level singletons
+    (see `llm.py` and `db.py`); they don't need lifespan involvement.
     """
     settings = get_settings()
-
-    app.state.chat_client = AsyncOpenAI(
-        base_url=str(settings.chat_base_url),
-        api_key=settings.chat_api_key,
-    )
-    app.state.chat_model = settings.chat_model
-
-    app.state.embedding_client = AsyncOpenAI(
-        base_url=str(settings.embedding_base_url),
-        api_key=settings.embedding_api_key,
-    )
-    app.state.embedding_model = settings.embedding_model
 
     app.state.redis = redis.from_url(str(settings.redis_url), decode_responses=True)
 
@@ -62,8 +51,6 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
             yield
     finally:
         await app.state.redis.aclose()
-        await app.state.chat_client.close()
-        await app.state.embedding_client.close()
 
 
 app = FastAPI(lifespan=_lifespan)

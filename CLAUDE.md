@@ -48,7 +48,7 @@ uv run basedpyright
 
 Both the Cortex tool surface and the hooks surface use the same trick: a shared registry object is created in one module, and feature modules register against it via decorators at import time. Importing the feature module **is** what wires it up.
 
-- `cortex/server.py` creates the `mcp: FastMCP` instance; each tool module (`add_to_diary.py`, `read_from_diary.py`, `get_schema.py`, `execute_query.py`) decorates a function with `@mcp.tool`. `cortex/__init__.py` does a side-effect import of all four.
+- `cortex/server.py` creates the `mcp: FastMCP` instance; each tool module (`add_to_diary.py`, `read_from_diary.py`, `search_memories.py`) decorates a function with `@mcp.tool`. `cortex/__init__.py` does a side-effect import of all three.
 - `hooks/__init__.py` creates `router: APIRouter`; each hook module (`timestamp.py`, `memories.py`) decorates a handler with `@router.post(...)`. `app.py` does the side-effect imports (with `# noqa: F401`).
 
 When adding a tool or hook, follow this pattern: write the module, then add it to the side-effect import in the corresponding `__init__`/`app.py`. Failing to add the import means the surface silently won't appear.
@@ -69,8 +69,6 @@ Hook handlers receive `request: Request` and pull these off `request.app.state`.
 
 - pgvector is registered against the `extensions` schema and the connection startup `search_path` is `public, extensions` (passed via `server_settings`, not `SET` — `SET` gets wiped on connection reset between borrows). Application tables are still schema-qualified (`cortex.memories`, `cortex.diary`).
 - The dev compose stack uses `pgvector/pgvector:pg17`; in production pgvector lives in the `extensions` schema. The search-path setup tolerates either layout — a fork whose DB has pgvector in `public` will still resolve operators.
-
-The `execute_query` MCP tool runs in a `readonly=True` transaction with a 5s statement timeout; writes fail at the Postgres level with error 25006.
 
 ### Time
 
