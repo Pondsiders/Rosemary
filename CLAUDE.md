@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Git conventions
 
-Use conventional-commit style for commit messages. Unless otherwise noted, the first author on Git commits should be "Alpha <alpha@alpahfornow.com>" with co-authored-by going to "Jeffery Harrell <jefferyharrell@gmail.com>".
+Use conventional-commit style for commit messages. Unless otherwise noted, the first author on Git commits should be "Alpha <alpha@alphafornow.com>" with co-authored-by going to "Jeffery Harrell <jefferyharrell@gmail.com>".
 
 ## Repository layout
 
