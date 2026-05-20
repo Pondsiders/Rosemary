@@ -21,6 +21,7 @@ from alpha_server.hooks import (
     timestamp,  # noqa: F401  # pyright: ignore[reportUnusedImport]
 )
 from alpha_server.hooks import router as hooks_router
+from alpha_server.origin_validation import OriginValidationMiddleware
 from alpha_server.settings import get_settings
 
 if TYPE_CHECKING:
@@ -54,6 +55,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 
 app = FastAPI(lifespan=_lifespan)
+app.add_middleware(OriginValidationMiddleware)
 app.mount("/cortex", _cortex_app)
 app.include_router(hooks_router, prefix="/hooks")
 
