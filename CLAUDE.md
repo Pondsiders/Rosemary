@@ -85,9 +85,3 @@ Two patterns, both process-singleton, both shared by hooks and MCP tools:
 - Ruff strict rule set (`E,W,F,I,B,UP,S,SIM,RUF,D`) with Google docstring convention. Tests are exempt from `S101` and `D10x`. `__init__.py` is exempt from `D104`; `__main__.py` from `D100`.
 - basedpyright is configured for `recommended` typecheckingMode with `reportExplicitAny` and `reportAny` disabled (deliberate — `Any` is honest at JSON boundaries we control).
 - No `print()` for observability; the server is meant to run under uvicorn and write JSON to stdout in production.
-
-## Production deployment
-
-`compose.yml` (the prod stack) builds `Dockerfile` and runs alpha-server in one container, port-mapped `127.0.0.1:8000:8000` on the host so Claude Code reaches it as `http://localhost:8000`. SSRF protection in the MCP hook channel blocks tailnet IPs; localhost is fine. Postgres and Redis live on alpha-DB and are reached over the tailnet from inside the container. `compose-dev.yml` is the dev DB stack (Postgres + Redis on the dev box).
-
-Deploy: `cd /opt/alpha && git pull && docker compose up -d --build` on Workshop.
