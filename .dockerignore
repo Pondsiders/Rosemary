@@ -1,0 +1,17 @@
+# Python virtualenvs and caches
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+
+# Dev-only directories
+**/scratch
+
+# Git/CI
+.git
+.gitignore
+
+# Local-only config that shouldn't be baked into the image
+.env
+.dockerignore

@@ -5,9 +5,12 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 WORKDIR /app
 
 # Cache deps separately from source so source-only edits don't
-# rebuild the deps layer.
+# rebuild the deps layer. The uv cache mount persists downloaded
+# wheels across builds, so a lockfile change re-resolves but
+# doesn't re-download from PyPI.
 COPY alpha-server/pyproject.toml alpha-server/uv.lock /app/alpha-server/
-RUN cd /app/alpha-server && uv sync --frozen --no-install-project --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    cd /app/alpha-server && uv sync --frozen --no-install-project --no-dev
 
 # Now the source.
 COPY alpha-server/ /app/alpha-server/
