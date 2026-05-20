@@ -8,6 +8,7 @@ dependencies = [
     "dateparser>=1.2",
     "fastapi>=0.115",
     "fastmcp>=2.0",
+    "httpx>=0.28",
     "numpy>=2.0",
     "openai>=1.0",
     "pendulum>=3.0",
@@ -15,6 +16,7 @@ dependencies = [
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
     "redis>=5.0",
+    "trafilatura>=2.0",
     "uvicorn[standard]>=0.32",
 ]
 
@@ -24,6 +26,7 @@ dev = [
     "pre-commit>=3.7",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    "respx>=0.22",
     "ruff>=0.6",
     "asyncpg-stubs>=0.31",
 ]
