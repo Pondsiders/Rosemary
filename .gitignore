@@ -16,3 +16,6 @@ build/
 
 # throwaway probe scripts — not part of the repo
 scratch/
+
+# per-checkout Docker Compose override (see compose.override.yml.example)
+compose.override.yml

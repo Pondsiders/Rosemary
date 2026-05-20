@@ -1,0 +1,15 @@
+# Auto-loaded by `docker compose up` when present alongside compose.yml.
+# Activates dev-mode overrides for this checkout.
+#
+# To enable on workshop (one-time):
+#   cp compose.override.yml.example compose.override.yml
+#
+# compose.override.yml is gitignored, so /opt/Alpha never picks it up
+# and prod stays on port 8000 with project name "alpha".
+
+name: alpha-dev
+
+services:
+  alpha-server:
+    ports:
+      - "127.0.0.1:8001:8000"
