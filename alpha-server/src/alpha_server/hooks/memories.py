@@ -17,6 +17,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
+import logfire
 import numpy as np
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -68,7 +69,8 @@ class HookResponse(BaseModel):
 @router.post("/memories")
 async def memories(envelope: HookEnvelope, request: Request) -> HookResponse:
     """Run the recall pipeline; return matched memories as additionalContext."""
-    additional_context = await _run(envelope.prompt, envelope.session_id, request)
+    with logfire.span("hooks.memories {session_id}", session_id=envelope.session_id):
+        additional_context = await _run(envelope.prompt, envelope.session_id, request)
     return HookResponse(
         hook_specific_output={
             "hookEventName": "UserPromptSubmit",
@@ -84,47 +86,49 @@ async def _run(prompt: str, session_id: str, request: Request) -> str:
     redis_client: redis.Redis = request.app.state.redis
 
     # 1. Ask the chat model to decompose the prompt into semantic-search queries.
-    chat_response = await chat_client.chat.completions.create(
-        model=llm.get_chat_model(),
-        messages=[
-            {"role": "system", "content": _EXTRACT_QUERIES_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.7,
-        top_p=0.8,
-        presence_penalty=1.5,
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": "queries",
-                "strict": True,
-                "schema": {
-                    "type": "array",
-                    "items": {"type": "string"},
+    with logfire.span("memories.extract_queries"):
+        chat_response = await chat_client.chat.completions.create(
+            model=llm.get_chat_model(),
+            messages=[
+                {"role": "system", "content": _EXTRACT_QUERIES_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            top_p=0.8,
+            presence_penalty=1.5,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "queries",
+                    "strict": True,
+                    "schema": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
                 },
             },
-        },
-        extra_body={
-            "top_k": 20,
-            "min_p": 0.0,
-            "repetition_penalty": 1.0,
-        },
-        timeout=15.0,
-    )
+            extra_body={
+                "top_k": 20,
+                "min_p": 0.0,
+                "repetition_penalty": 1.0,
+            },
+            timeout=15.0,
+        )
 
-    raw = chat_response.choices[0].message.content or "[]"
-    parsed: list[Any] = json.loads(raw)
-    queries = [q for q in parsed if isinstance(q, str) and q.strip()]
+        raw = chat_response.choices[0].message.content or "[]"
+        parsed: list[Any] = json.loads(raw)
+        queries = [q for q in parsed if isinstance(q, str) and q.strip()]
     if not queries:
         return ""
 
     # 2. Embed all queries in one batched request.
-    embedding_response = await embedding_client.embeddings.create(
-        model=llm.get_embedding_model(),
-        input=[llm.format_query_for_embedding(q) for q in queries],
-        timeout=15.0,
-    )
-    embeddings = [np.asarray(d.embedding, dtype=np.float32) for d in embedding_response.data]
+    with logfire.span("memories.embed_queries", count=len(queries)):
+        embedding_response = await embedding_client.embeddings.create(
+            model=llm.get_embedding_model(),
+            input=[llm.format_query_for_embedding(q) for q in queries],
+            timeout=15.0,
+        )
+        embeddings = [np.asarray(d.embedding, dtype=np.float32) for d in embedding_response.data]
 
     # 3. Pull the seen-set for this session from Redis.
     seen_key = f"seen:{session_id}"
@@ -142,9 +146,10 @@ async def _run(prompt: str, session_id: str, request: Request) -> str:
             rows = await conn.fetch(_SEARCH_SQL, emb, exclude, _TOP_K_PER_QUERY)
         return query, cast("list[Any]", rows)
 
-    per_query_results = await asyncio.gather(
-        *(search(emb, q) for emb, q in zip(embeddings, queries, strict=True))
-    )
+    with logfire.span("memories.search_db", queries=len(queries)):
+        per_query_results = await asyncio.gather(
+            *(search(emb, q) for emb, q in zip(embeddings, queries, strict=True))
+        )
 
     # 5. Merge, dedupe by id (keeping best score), filter low-cosine, sort.
     by_id: dict[int, dict[str, Any]] = {}

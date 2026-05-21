@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
+import logfire
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict
 
@@ -70,19 +71,20 @@ async def reflection(envelope: HookEnvelope, request: Request) -> dict[str, Any]
     `{"decision": "block", "reason": <reminder>}` on fire (keeps the turn open
     and feeds the reminder to the model).
     """
-    # Don't recurse: if Claude Code is already continuing because of a prior
-    # block, let this turn end normally.
-    if envelope.stop_hook_active:
-        return {}
+    with logfire.span("hooks.reflection {session_id}", session_id=envelope.session_id):
+        # Don't recurse: if Claude Code is already continuing because of a prior
+        # block, let this turn end normally.
+        if envelope.stop_hook_active:
+            return {}
 
-    redis_client: redis.Redis = request.app.state.redis
-    key = f"reflection:turn:{envelope.session_id}"
+        redis_client: redis.Redis = request.app.state.redis
+        key = f"reflection:turn:{envelope.session_id}"
 
-    # INCR on a missing key starts at 1. Atomic.
-    turn = int(cast("int", await redis_client.incr(key)))
-    await redis_client.expire(key, _SEEN_TTL_SECONDS)
+        # INCR on a missing key starts at 1. Atomic.
+        turn = int(cast("int", await redis_client.incr(key)))
+        await redis_client.expire(key, _SEEN_TTL_SECONDS)
 
-    if not _gate(turn):
-        return {}
+        if not _gate(turn):
+            return {}
 
-    return {"decision": "block", "reason": _REMINDER_TEXT}
+        return {"decision": "block", "reason": _REMINDER_TEXT}

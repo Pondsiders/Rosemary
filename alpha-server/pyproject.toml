@@ -9,6 +9,7 @@ dependencies = [
     "fastapi>=0.115",
     "fastmcp>=2.0",
     "httpx>=0.28",
+    "logfire[asyncpg,fastapi,httpx]>=3.0",
     "numpy>=2.0",
     "openai>=1.0",
     "pendulum>=3.0",

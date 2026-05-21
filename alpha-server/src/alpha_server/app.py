@@ -9,6 +9,7 @@ from __future__ import annotations
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import TYPE_CHECKING
 
+import logfire
 import redis.asyncio as redis
 from fastapi import FastAPI
 
@@ -32,6 +33,26 @@ _cortex_app = cortex_mcp.http_app(path="/mcp")
 _utils_app = utils_mcp.http_app(path="/mcp")
 
 
+def _scrubbing_callback(match: logfire.ScrubMatch) -> str | None:
+    """Whitelist ``session_id`` from Logfire's default scrubbing.
+
+    Logfire's default patterns include ``session``, which matches our
+    ``session_id`` span attribute. The Claude Code session UUID isn't
+    sensitive on its own, and it's the only join key we have for
+    cross-referencing alpha-server traces with Claude Code's separate
+    OTel trace stream and Bifrost logs.
+
+    Other ``session``-pattern matches stay scrubbed; this is surgical.
+    """
+    if (
+        match.path
+        and match.path[-1] == "session_id"
+        and match.pattern_match.group(0).lower() == "session"
+    ):
+        return match.value
+    return None
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Open long-lived per-request state and compose the mounted MCP lifespans.
@@ -48,6 +69,16 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     (see `llm.py` and `db.py`); they don't need lifespan involvement.
     """
     settings = get_settings()
+
+    _ = logfire.configure(
+        token=settings.logfire_token,
+        service_name=settings.otel_service_name,
+        scrubbing=logfire.ScrubbingOptions(callback=_scrubbing_callback),
+    )
+    _ = logfire.instrument_fastapi(app)
+    logfire.instrument_httpx()
+    logfire.instrument_asyncpg()
+    _ = logfire.instrument_openai()
 
     app.state.redis = redis.from_url(str(settings.redis_url), decode_responses=True)
 

@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     embedding_api_key: str
     embedding_base_url: HttpUrl
     embedding_model: str
+    logfire_token: str
+    otel_service_name: str = "alpha-server"
     redis_url: RedisDsn
     timezone: str
 
