@@ -12,13 +12,13 @@ Use conventional-commit style for commit messages. Unless otherwise noted, the f
 
 ## Repository layout
 
-This is a small monorepo. The only source tree is `alpha-server/` (a Python package); everything at the repo root is infra glue (a `Dockerfile` and `compose.yml` for production, `compose-dev.yml` for the local dev DB stack, a `justfile`, a `.env` shared by both halves).
+This is a small monorepo. The only source tree is `alpha-server/` (a Python package); everything at the repo root is infra glue (a `Dockerfile` and `compose.yml` for production, `compose-dev.yml` for the local dev stack, a `justfile`, a `.env` shared by both halves).
 
 ## Commands
 
 All `just` recipes run from the repo root; all `uv` commands run from `alpha-server/`.
 
-Dev environment (Postgres+pgvector and Redis in Docker):
+Dev environment runs in Docker — Postgres+pgvector, Redis, and `alpha-server` with uvicorn `--reload` on `127.0.0.1:8001`. Project name is `alpha-dev`.
 
 ```
 just dev-up                # start

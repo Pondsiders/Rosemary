@@ -1,4 +1,49 @@
+name: alpha-dev
+
 services:
+  alpha-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    env_file:
+      - .env
+    environment:
+      # Point at the in-stack Postgres and Redis, overriding any .env values.
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Bind-mount source for uvicorn --reload. uv sync installs the project
+      # in editable mode by default, so imports resolve through this path.
+      - ./alpha-server/src:/app/alpha-server/src:ro
+    command:
+      - uvicorn
+      - alpha_server.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --reload-dir
+      - /app/alpha-server/src
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://127.0.0.1:8000/livez'').read()"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   postgres:
     image: pgvector/pgvector:pg17
     container_name: alpha-dev-postgres
@@ -20,7 +65,7 @@ services:
     image: redis:8-alpine
     container_name: alpha-dev-redis
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379:6379"
     volumes:
       - alpha-dev-redis:/data
     command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
