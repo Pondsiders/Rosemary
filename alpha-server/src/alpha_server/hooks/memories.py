@@ -156,24 +156,26 @@ async def _run(prompt: str, session_id: str, request: Request) -> str:
             *(search(emb, q) for emb, q in zip(embeddings, queries, strict=True))
         )
 
-    # 5. Merge, dedupe by id (keeping best score), filter low-cosine, sort.
+    # 5. Merge, dedupe by id (keeping earliest-query match), filter low-cosine,
+    # then sort by query index.
     by_id: dict[int, dict[str, Any]] = {}
-    for query, rows in per_query_results:
+    for q_idx, (query, rows) in enumerate(per_query_results):
         for row in rows:
             score = float(row["score"])
             if score < _MIN_COSINE:
                 continue
             mem_id = int(row["id"])
             existing = by_id.get(mem_id)
-            if existing is None or score > existing["score"]:
+            if existing is None or q_idx < existing["q_idx"]:
                 by_id[mem_id] = {
                     "id": mem_id,
                     "content": row["content"],
                     "created_at": row["created_at"],
                     "score": score,
                     "query": query,
+                    "q_idx": q_idx,
                 }
-    merged = sorted(by_id.values(), key=lambda m: m["score"], reverse=True)
+    merged = sorted(by_id.values(), key=lambda m: m["q_idx"])
     if not merged:
         return ""
 
