@@ -1,4 +1,4 @@
-# Production image for alpha-server.
+# Production image for mechanism.
 
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
@@ -8,20 +8,20 @@ WORKDIR /app
 # rebuild the deps layer. The uv cache mount persists downloaded
 # wheels across builds, so a lockfile change re-resolves but
 # doesn't re-download from PyPI.
-COPY alpha-server/pyproject.toml alpha-server/uv.lock /app/alpha-server/
+COPY mechanism/pyproject.toml mechanism/uv.lock /app/mechanism/
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-    cd /app/alpha-server && uv sync --frozen --no-install-project --no-dev
+    cd /app/mechanism && uv sync --frozen --no-install-project --no-dev
 
 # Now the source.
-COPY alpha-server/ /app/alpha-server/
-RUN cd /app/alpha-server && uv sync --frozen --no-dev
+COPY mechanism/ /app/mechanism/
+RUN cd /app/mechanism && uv sync --frozen --no-dev
 
-ENV PATH="/app/alpha-server/.venv/bin:${PATH}"
+ENV PATH="/app/mechanism/.venv/bin:${PATH}"
 
-WORKDIR /app/alpha-server
+WORKDIR /app/mechanism
 
 EXPOSE 8000
 
 # Bind to 0.0.0.0 inside the container; the compose port-mapping
 # restricts external reach to 127.0.0.1 on the host.
-CMD ["uvicorn", "alpha_server.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "mechanism.app:app", "--host", "0.0.0.0", "--port", "8000"]

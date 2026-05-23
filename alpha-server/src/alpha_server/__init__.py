@@ -1,1 +1,0 @@
-"""Alpha's server."""

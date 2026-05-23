@@ -12,13 +12,13 @@ Use conventional-commit style for commit messages. Unless otherwise noted, the f
 
 ## Repository layout
 
-This is a small monorepo. The only source tree is `alpha-server/` (a Python package); everything at the repo root is infra glue (a `Dockerfile` and `compose.yml` for production, `compose-dev.yml` for the local dev stack, a `justfile`, a `.env` shared by both halves).
+This is a small monorepo. The only source tree is `mechanism/` (a Python package); everything at the repo root is infra glue (a `Dockerfile` and `compose.yml` for production, `compose-dev.yml` for the local dev stack, a `justfile`, a `.env` shared by both halves).
 
 ## Commands
 
-All `just` recipes run from the repo root; all `uv` commands run from `alpha-server/`.
+All `just` recipes run from the repo root; all `uv` commands run from `mechanism/`.
 
-Dev environment runs in Docker — Postgres+pgvector, Redis, and `alpha-server` with uvicorn `--reload` on `127.0.0.1:8001`. Project name is `alpha-dev`.
+Dev environment runs in Docker — Postgres+pgvector, Redis, and `mechanism` with uvicorn `--reload` on `127.0.0.1:8001`. Project name is `alpha-dev`.
 
 ```
 just dev-up                # start
@@ -26,11 +26,11 @@ just dev-down              # stop (data preserved)
 just dev-init <dump.sql>   # WIPE volumes and pg_restore from a dump
 ```
 
-Server, tests, lint, typecheck (from `alpha-server/`):
+Server, tests, lint, typecheck (from `mechanism/`):
 
 ```
 uv sync --all-extras
-uv run uvicorn alpha_server.app:app --host 127.0.0.1 --port 8000
+uv run uvicorn mechanism.app:app --host 127.0.0.1 --port 8000
 uv run pytest
 uv run pytest tests/test_read_from_diary.py::test_read_from_diary_returns_recent_entries
 uv run ruff check
@@ -42,7 +42,7 @@ uv run basedpyright
 
 ## Architecture
 
-`alpha_server.app:app` is a single FastAPI app that mounts two distinct surfaces:
+`mechanism.app:app` is a single FastAPI app that mounts two distinct surfaces:
 
 - **`/cortex/mcp`** — a FastMCP server exposing memory/diary tools to the Alpha client over Streamable HTTP. Built by `mcp.http_app(path="/mcp")` and mounted as a sub-ASGI app; its lifespan is composed into the outer FastAPI lifespan (omitting this hand-off causes tool calls to hang).
 - **`/hooks/*`** — Claude Code hook endpoints. `/hooks/timestamp` and `/hooks/memories` are `UserPromptSubmit` hooks that return `additionalContext` strings. `/hooks/reflection` is a `Stop` hook with a different envelope shape: it returns `{"decision": "block", "reason": ...}` to fire a between-turns reminder (Stop hooks don't use `additionalContext`). The reflection handler must short-circuit when `stop_hook_active=true` to avoid recursion.

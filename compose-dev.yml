@@ -1,7 +1,7 @@
 name: alpha-dev
 
 services:
-  alpha-server:
+  mechanism:
     build:
       context: .
       dockerfile: Dockerfile
@@ -22,17 +22,17 @@ services:
     volumes:
       # Bind-mount source for uvicorn --reload. uv sync installs the project
       # in editable mode by default, so imports resolve through this path.
-      - ./alpha-server/src:/app/alpha-server/src:ro
+      - ./mechanism/src:/app/mechanism/src:ro
     command:
       - uvicorn
-      - alpha_server.app:app
+      - mechanism.app:app
       - --host
       - 0.0.0.0
       - --port
       - "8000"
       - --reload
       - --reload-dir
-      - /app/alpha-server/src
+      - /app/mechanism/src
     healthcheck:
       test:
         [
