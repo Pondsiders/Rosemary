@@ -53,7 +53,8 @@ jobs:
       EMBEDDING_API_KEY: fake-embed-key
       EMBEDDING_BASE_URL: http://invalid.local
       EMBEDDING_MODEL: fake-embed-model
-      LOGFIRE_TOKEN: fake-logfire-token
+      # LOGFIRE_TOKEN deliberately unset — settings.py validator refuses a
+      # token without OTEL_SERVICE_NAME, and CI has no use for either.
       TIMEZONE: America/Los_Angeles
       LOGFIRE_IGNORE_NO_CONFIG: "1"
       MECHANISM_CI: "1"
