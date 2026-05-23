@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncGenerator
+from typing import Any
 
 import pytest
 import redis.asyncio as redis
 from httpx import ASGITransport, AsyncClient
+from openai.types import CreateEmbeddingResponse, Embedding
+from openai.types.chat import ChatCompletion, ChatCompletionMessage
+from openai.types.chat.chat_completion import Choice
 
 from mechanism import db
 
@@ -50,19 +54,111 @@ def pytest_configure(config: pytest.Config) -> None:  # pyright: ignore[reportUn
 
 
 @pytest.fixture(autouse=True)
-async def _reset_pool_between_tests() -> AsyncGenerator[None]:  # pyright: ignore[reportUnusedFunction]
-    """Close and reset `db._pool` between tests.
+async def _clean_db_and_reset_pool() -> AsyncGenerator[None]:  # pyright: ignore[reportUnusedFunction]
+    """TRUNCATE the test data tables before each test; reset the asyncpg pool after.
 
-    asyncpg pools are bound to the event loop they were created in. Each
-    pytest-asyncio test runs in a fresh event loop, so a singleton pool
-    created in one test poisons subsequent tests with `cannot perform
-    operation: another operation is in progress`. This fixture closes the
-    pool after each test so the next test starts fresh.
+    Two failure modes this addresses:
+
+    1. **DB pollution between tests.** Without isolation, a row written by
+       test A is visible to test B (e.g. `test_store_memory` leaves a real-
+       embedding row that the memories-hook test then finds by cosine
+       similarity). TRUNCATE-before-each-test gives every test a clean
+       cortex.* baseline; tests that write their own rows still work
+       because they assert by the id they just got back.
+
+    2. **asyncpg pool poisoning across event loops.** Pools are bound to
+       the event loop they were created in. Each pytest-asyncio test runs
+       in a fresh event loop, so a singleton pool created in one test
+       poisons subsequent tests with `cannot perform operation: another
+       operation is in progress`. Closing the pool after each test means
+       the next test starts fresh.
     """
+    from mechanism.db import get_pool
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        _ = await conn.execute("TRUNCATE cortex.memories, cortex.diary RESTART IDENTITY CASCADE")
+
     yield
+
     if db._pool is not None:  # pyright: ignore[reportPrivateUsage]
         await db._pool.close()  # pyright: ignore[reportPrivateUsage]
         db._pool = None  # pyright: ignore[reportPrivateUsage]
+
+
+_EMBEDDING_DIMENSIONS = 2560  # Qwen 3 Embedding 4B; see llm.format_query_for_embedding.
+
+
+@pytest.fixture
+def mock_llm(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[dict[str, Any]]]:
+    """Monkeypatch the LLM clients' `.create()` methods with deterministic stubs.
+
+    Constructs the real chat and embedding clients via the module-level
+    factories (lazy singletons), then replaces only their network-calling
+    `create` methods. The rest of the code path — settings load, client
+    construction, the format-for-embedding step, response parsing — all
+    still runs against the real surfaces. Only the wire is faked.
+
+    Both call sites (`/hooks/memories` and `/hooks/anamneses`) currently
+    expect the same response shape: a JSON-encoded array of strings in
+    `choices[0].message.content`. Until that changes, one fixed canned
+    response covers both. Per Jeffery's principle: pre-engineering for
+    hypothetical future shapes is the same trap as defensive tests for
+    bugs we'd never write.
+
+    Returns a dict with `chat_calls` and `embed_calls` lists so tests can
+    assert on what got sent to the wire (the right prompt? the right
+    number of embedded queries?).
+    """
+    from mechanism import llm
+
+    chat_client = llm.get_chat_client()
+    embed_client = llm.get_embedding_client()
+
+    chat_calls: list[dict[str, Any]] = []
+    embed_calls: list[dict[str, Any]] = []
+
+    async def fake_chat_create(**kwargs: Any) -> ChatCompletion:
+        chat_calls.append(kwargs)
+        return ChatCompletion(
+            id="fake-chatcmpl",
+            object="chat.completion",
+            created=0,
+            model="fake-chat-model",
+            choices=[
+                Choice(
+                    index=0,
+                    finish_reason="stop",
+                    message=ChatCompletionMessage(
+                        role="assistant",
+                        content='["test query alpha", "test query beta"]',
+                    ),
+                )
+            ],
+        )
+
+    async def fake_embed_create(**kwargs: Any) -> CreateEmbeddingResponse:
+        embed_calls.append(kwargs)
+        raw_input = kwargs.get("input")
+        n_inputs = (
+            len(raw_input) if isinstance(raw_input, list) else 1  # pyright: ignore[reportUnknownArgumentType]
+        )
+        return CreateEmbeddingResponse(
+            object="list",
+            model="fake-embed-model",
+            usage={"prompt_tokens": 0, "total_tokens": 0},  # pyright: ignore[reportArgumentType]
+            data=[
+                Embedding(
+                    index=i, object="embedding", embedding=[0.0] * _EMBEDDING_DIMENSIONS
+                )
+                for i in range(n_inputs)
+            ],
+        )
+
+    monkeypatch.setattr(chat_client.chat.completions, "create", fake_chat_create)
+    monkeypatch.setattr(embed_client.embeddings, "create", fake_embed_create)
+
+    return {"chat_calls": chat_calls, "embed_calls": embed_calls}
 
 
 @pytest.fixture
