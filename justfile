@@ -30,3 +30,34 @@ dev-init dump:
         --no-owner \
         --no-acl \
         < {{dump}}
+
+# Start the isolated test stack (Postgres on 127.0.0.1:55432, Redis on 127.0.0.1:56379).
+test-up:
+    docker compose -f compose-test.yml up -d --wait
+
+# Stop the test stack (preserves the data volume).
+test-down:
+    docker compose -f compose-test.yml down
+
+# Wipe the test Postgres volume, bring services up fresh, load schema.sql.
+test-init:
+    docker compose -f compose-test.yml down -v
+    docker compose -f compose-test.yml up -d --wait
+    docker compose -f compose-test.yml exec -T postgres psql \
+        --username=postgres \
+        --dbname=postgres \
+        --single-transaction \
+        < mechanism/tests/fixtures/schema.sql
+
+# Run the pytest suite against the test stack.
+# Sets TEST_DATABASE_URL/TEST_REDIS_URL pointing at compose-test's services;
+# conftest.py rewrites DATABASE_URL/REDIS_URL from them at session start.
+test: test-up
+    cd mechanism && \
+        TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/postgres \
+        TEST_REDIS_URL=redis://127.0.0.1:56379/0 \
+        LOGFIRE_IGNORE_NO_CONFIG=1 \
+        uv run pytest
+
+# Wipe and re-init the test stack, then run the suite.
+test-reset: test-init test
