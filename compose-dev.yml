@@ -33,6 +33,8 @@ services:
       - --reload
       - --reload-dir
       - /app/mechanism/src
+      - --reload-include
+      - "*.md"
     healthcheck:
       test:
         [
