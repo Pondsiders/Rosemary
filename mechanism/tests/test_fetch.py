@@ -97,9 +97,7 @@ async def test_tier3_trafilatura_extracts_from_html() -> None:
     # through); the second call gets the same content for trafilatura to
     # extract from.
     _ = respx.get("https://example.com/article").mock(
-        return_value=httpx.Response(
-            200, headers={"content-type": "text/html"}, text=article_html
-        )
+        return_value=httpx.Response(200, headers={"content-type": "text/html"}, text=article_html)
     )
     # Tier 2 variants — return 404 so we fall through to tier 3
     _ = respx.get("https://example.com/article.md").mock(return_value=httpx.Response(404))

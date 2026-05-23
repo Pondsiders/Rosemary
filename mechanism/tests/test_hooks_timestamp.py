@@ -39,6 +39,5 @@ async def test_timestamp_extends_context_on_subsequent_calls(hooks_client: Async
     # Structural contract, not a language assertion: subsequent calls
     # extend the context with a gap clause, so context2 is strictly longer.
     assert len(context2) > len(context1), (
-        f"expected second call to add a gap clause; "
-        f"got context1={context1!r} context2={context2!r}"
+        f"expected second call to add a gap clause; got context1={context1!r} context2={context2!r}"
     )

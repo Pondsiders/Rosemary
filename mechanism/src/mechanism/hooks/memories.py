@@ -30,9 +30,7 @@ from mechanism.hooks import router
 if TYPE_CHECKING:
     import redis.asyncio as redis
 
-_SYSTEM_PROMPT = (Path(__file__).parent / "memories_system_prompt.md").read_text(
-    encoding="utf-8"
-)
+_SYSTEM_PROMPT = (Path(__file__).parent / "memories_system_prompt.md").read_text(encoding="utf-8")
 
 _TOP_K_PER_QUERY = 1
 _MIN_COSINE = 0.1

@@ -36,8 +36,6 @@ async def test_add_to_diary_writes_a_row() -> None:
     # Verify the row is actually in cortex.diary with the content we sent.
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT content FROM cortex.diary WHERE id = $1", new_id
-        )
+        row = await conn.fetchrow("SELECT content FROM cortex.diary WHERE id = $1", new_id)
     assert row is not None
     assert row["content"] == content

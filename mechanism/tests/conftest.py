@@ -238,9 +238,7 @@ def mock_llm(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[dict[str, Any]]]
             model="fake-embed-model",
             usage={"prompt_tokens": 0, "total_tokens": 0},  # pyright: ignore[reportArgumentType]
             data=[
-                Embedding(
-                    index=i, object="embedding", embedding=[0.0] * _EMBEDDING_DIMENSIONS
-                )
+                Embedding(index=i, object="embedding", embedding=[0.0] * _EMBEDDING_DIMENSIONS)
                 for i in range(n_inputs)
             ],
         )
@@ -265,9 +263,7 @@ async def hooks_client() -> AsyncGenerator[AsyncClient]:
 
     app.state.redis = redis.from_url(os.environ["REDIS_URL"], decode_responses=True)
     try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             yield client
     finally:
         await app.state.redis.aclose()
