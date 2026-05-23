@@ -29,7 +29,7 @@ just dev-init <dump.sql>   # WIPE volumes and pg_restore from a dump
 Server, tests, lint, typecheck (from `mechanism/`):
 
 ```
-uv sync --all-extras
+uv sync
 uv run uvicorn mechanism.app:app --host 127.0.0.1 --port 8000
 uv run pytest
 uv run pytest tests/test_read_from_diary.py::test_read_from_diary_returns_recent_entries

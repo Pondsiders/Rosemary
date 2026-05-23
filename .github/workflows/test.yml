@@ -68,7 +68,7 @@ jobs:
 
       - name: Install Python dependencies
         working-directory: mechanism
-        run: uv sync --all-extras
+        run: uv sync
 
       - name: Load test schema
         run: |
