@@ -19,3 +19,9 @@ scratch/
 
 # per-checkout Docker Compose override (see compose.override.yml.example)
 compose.override.yml
+
+# Eval data — kept locally (Syncthing-replicated) but not in git.
+# Source messages and their hand-decomposed labels contain personal,
+# medical, family, and otherwise private content. Loosen as appropriate.
+mechanism/evals/sample-*.json
+mechanism/evals/label.py
