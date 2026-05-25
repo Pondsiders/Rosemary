@@ -19,3 +19,7 @@ scratch/
 
 # per-checkout Docker Compose override (see compose.override.yml.example)
 compose.override.yml
+
+# evals
+mechanism/evals/.cache/
+mechanism/evals/suites/memories/
