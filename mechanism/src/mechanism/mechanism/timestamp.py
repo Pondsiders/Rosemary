@@ -41,8 +41,6 @@ async def timestamp() -> dict[str, dict[str, str]]:
     return {
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
-            "additionalContext": (
-                f"The user sent this message on {clock.pso8601(clock.now())}."
-            ),
+            "additionalContext": (f"The user sent this message on {clock.pso8601(clock.now())}."),
         }
     }

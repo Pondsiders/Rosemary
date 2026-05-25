@@ -56,13 +56,12 @@ Pre-commit is installed (`uv run pre-commit install` once per clone). The hooks 
 
 ## Architecture
 
-`mechanism.app:app` is a **Starlette parent** composing three FastMCP servers over Streamable HTTP plus a transitional FastAPI sub-app for the legacy HTTP hook endpoints. Mounts:
+`mechanism.app:app` is a **Starlette parent** composing three FastMCP servers over Streamable HTTP. Mounts:
 
 - **`/cortex/mcp`** — Cortex memory and diary tools (`store_memory`, `search_memories`, `recent_memories`, `get_memory`, `read_from_diary`, `add_to_diary`).
-- **`/mechanism/mcp`** — hook-shaped MCP tools (`timestamp`, `memories`, `anamneses`, `reflection`). These mirror the legacy `/hooks/*` endpoints but are invokable via Claude Code's `mcp_tool` hook type, which is what makes remote-keyboard CC sessions work over a tailnet.
+- **`/mechanism/mcp`** — hook-shaped MCP tools (`timestamp`, `memories`, `anamneses`, `reflection`). Invokable via Claude Code's `mcp_tool` hook type, which is what makes remote-keyboard CC sessions work over a tailnet.
 - **`/utils/mcp`** — utility tools (e.g. `fetch`).
 - **`/mechanism/livez`** — unauthenticated health check, attached to the mechanism FastMCP server via `@mcp.custom_route` (custom routes bypass FastMCP auth by design — exactly what we want for load-balancer and `tailscale serve` probes).
-- **`/hooks/*`** — legacy FastAPI HTTP hook endpoints (`timestamp`, `memories`, `anamneses`, `reflection`). **Transitional.** Kept alive as a rollback path while the MCP-tool migration finishes; retires in Phase 4 cleanup. Don't add new functionality here — port hook tools to `mechanism/mechanism/` instead.
 
 The lifespan composes each mounted FastMCP server's session manager via `AsyncExitStack` so adding another mounted server is one `enter_async_context` line. Skipping the hand-off causes mounted tool calls to hang.
 
@@ -74,24 +73,23 @@ The lifespan composes each mounted FastMCP server's session manager via `AsyncEx
 
 ### Side-effect registration pattern
 
-Four registries (one per FastMCP server, one for the HTTP hooks router) use the same trick: a shared registry object is created in one module, and feature modules register against it via decorators at import time. Importing the feature module **is** what wires it up.
+Three registries (one per FastMCP server) use the same trick: a shared registry object is created in one module, and feature modules register against it via decorators at import time. Importing the feature module **is** what wires it up.
 
 - **`cortex/server.py`** creates the `mcp: FastMCP` instance; each tool module decorates a function with `@mcp.tool`. `cortex/__init__.py` does side-effect imports of every tool module. Tool result shapes live in `cortex/models.py`; the server's tool-surface prose lives in `cortex/instructions.md` (read at startup).
 - **`mechanism/mechanism/server.py`** creates the `mcp` instance for the mechanism tool surface; `mechanism/mechanism/__init__.py` does the side-effect imports (`memories`, `anamneses`, `reflection`, `timestamp`, `livez`). System-prompt prose lives next to each tool as `<tool>_system_prompt.md`.
 - **`utils/server.py`** creates the `mcp` instance for utility tools; `utils/__init__.py` does the side-effect imports.
-- **`hooks/__init__.py`** creates `router: APIRouter`; each hook module decorates a handler with `@router.post(...)`. `app.py` does side-effect imports with `# noqa: F401`.
 
-When adding a tool or hook, follow this pattern: write the module, then add it to the side-effect import in the corresponding `__init__`/`app.py`. Failing to add the import means the surface silently won't appear.
+When adding a tool, follow this pattern: write the module, then add it to the side-effect import in the corresponding `__init__.py`. Failing to add the import means the surface silently won't appear.
 
 ### Long-lived clients
 
-Three process-singleton clients, all lazy module-level, all shared by HTTP hooks and MCP tools:
+Three process-singleton clients, all lazy module-level, all shared by the MCP tools:
 
 - **`llm.py`** — `get_chat_client()` / `get_chat_model()` / `get_embedding_client()` / `get_embedding_model()`. Each constructs the OpenAI-protocol client (against the Bifrost gateway) on first call and returns the same instance thereafter. `llm.py` also owns `format_query_for_embedding()` — the Qwen 3 Embedding 4B input shape lives there because swapping the embedding model means revisiting both this prefix and re-embedding `cortex.memories`.
 - **`db.py`** — `get_pool()` returns the process-singleton `asyncpg.Pool`.
-- **`redis_client.py`** — `get_redis_client()` returns the process-singleton async Redis client. Closed explicitly on app shutdown via `close_redis_client()` in the lifespan teardown. Replaces the older `app.state.redis` lifespan idiom, which didn't extend to MCP-tool handlers that have no FastAPI-request scope.
+- **`redis_client.py`** — `get_redis_client()` returns the process-singleton async Redis client. Closed explicitly on app shutdown via `close_redis_client()` in the lifespan teardown. MCP-tool handlers have no request scope, so the singleton pattern is what's available.
 
-Three Redis key families share the database: `seen:<session_id>` (memories recall dedupe), `last-msg:<session_id>` (timestamp hook), `reflection:turn:<session_id>` (reflection turn counter, fires every third turn).
+Three Redis key families share the database: `seen:<session_id>` (memories recall dedupe), `last-msg:<session_id>` (timestamp tool), `reflection:turn:<session_id>` (reflection turn counter, fires every third turn).
 
 ### Database
 
@@ -112,7 +110,7 @@ Three Redis key families share the database: `seen:<session_id>` (memories recal
 
 ### Observability
 
-The lifespan calls `logfire.instrument_mcp()` (covers all three mounted FastMCP servers), `logfire.instrument_fastapi(_hooks_app)` (covers the legacy `/hooks/*` sub-app), and the usual `instrument_httpx` / `instrument_asyncpg` / `instrument_openai`. A surgical scrubbing callback whitelists the `session_id` span attribute from Logfire's default `session` scrub pattern — Claude Code session UUIDs aren't sensitive, and they're the only join key we have between mechanism traces, CC's separate OTel stream, and Bifrost logs.
+The lifespan calls `logfire.instrument_mcp()` (covers all three mounted FastMCP servers) and the usual `instrument_httpx` / `instrument_asyncpg` / `instrument_openai`. A surgical scrubbing callback whitelists the `session_id` span attribute from Logfire's default `session` scrub pattern — Claude Code session UUIDs aren't sensitive, and they're the only join key we have between mechanism traces, CC's separate OTel stream, and Bifrost logs.
 
 ## Conventions
 

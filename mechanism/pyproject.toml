@@ -6,10 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.29",
     "dateparser>=1.2",
-    "fastapi>=0.115",
     "fastmcp>=2.0",
     "httpx>=0.28",
-    "logfire[asyncpg,fastapi,httpx]>=3.0",
+    "logfire[asyncpg,httpx]>=3.0",
     "numpy>=2.0",
     "openai>=1.0",
     "pendulum>=3.0",

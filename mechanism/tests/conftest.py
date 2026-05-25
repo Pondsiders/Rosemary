@@ -62,7 +62,7 @@ async def _reset_state_between_tests() -> AsyncGenerator[None]:  # pyright: igno
 
     1. **DB pollution between tests.** Without isolation, a row written by
        test A is visible to test B (e.g. `test_store_memory` leaves a real-
-       embedding row that the memories-hook test then finds by cosine
+       embedding row that the memories tool test then finds by cosine
        similarity). TRUNCATE-before-each-test gives every test a clean
        cortex.* baseline; tests that write their own rows still work
        because they assert by the id they just got back.
@@ -174,7 +174,7 @@ async def seeded(_reset_state_between_tests: None) -> None:
     Depends on `_reset_state_between_tests` (the autouse TRUNCATE) so the seed
     lands into a clean cortex.memories / cortex.diary. Tests that need seed
     data declare `seeded` as a parameter; tests that don't get an empty DB
-    (so e.g. the memories-hook no-op assertion stays meaningful).
+    (so e.g. the memories tool no-op assertion stays meaningful).
 
     Per-test reseed is intentional — seed.sql is ~200 KB of pre-computed
     Qwen embeddings, so each test starts from an identical fixture state.
@@ -198,7 +198,7 @@ def mock_llm(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[dict[str, Any]]]
     construction, the format-for-embedding step, response parsing — all
     still runs against the real surfaces. Only the wire is faked.
 
-    Both call sites (`/hooks/memories` and `/hooks/anamneses`) currently
+    Both call sites (the `memories` and `anamneses` MCP tools) currently
     expect the same response shape: a JSON-encoded array of strings in
     `choices[0].message.content`. Until that changes, one fixed canned
     response covers both. Per Jeffery's principle: pre-engineering for
@@ -259,15 +259,19 @@ def mock_llm(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[dict[str, Any]]]
 
 
 @pytest.fixture
-async def hooks_client() -> AsyncGenerator[AsyncClient]:
+async def http_client() -> AsyncGenerator[AsyncClient]:
     """An httpx AsyncClient for the Starlette parent app.
 
-    Bypasses the full app lifespan (which handles production-only concerns
-    like Logfire configuration and the mounted MCP sub-apps' startup).
-    Redis is reached by handlers via `get_redis_client()` — the process-
-    singleton in `mechanism.redis_client` — so the fixture doesn't need to
-    wire it in. The autouse `_reset_state_between_tests` fixture closes the
-    singleton between tests so each test gets a client on its own event loop.
+    Tests HTTP-level surfaces — currently just `/mechanism/livez`, the
+    `@mcp.custom_route` health check that bypasses FastMCP auth. The MCP
+    tools themselves get tested via the FastMCP in-memory client, not
+    through this fixture.
+
+    Bypasses the full app lifespan (Logfire configuration, mounted MCP
+    sub-app startup). Redis is reached by handlers via `get_redis_client()`,
+    the process-singleton in `mechanism.redis_client`; the autouse
+    `_reset_state_between_tests` fixture closes the singleton between tests
+    so each test gets a client on its own event loop.
     """
     from mechanism.app import app
 

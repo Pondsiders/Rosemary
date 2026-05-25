@@ -1,10 +1,7 @@
 """ASGI application factory.
 
 Starlette parent composing three FastMCP servers (cortex, mechanism,
-utils) over Streamable HTTP, plus a FastAPI sub-app for the legacy
-``/hooks/*`` endpoints. The FastAPI sub-app is transitional — those
-hooks are being ported to MCP tools on the mechanism server and the
-sub-app will retire in Phase 4 cleanup.
+utils) over Streamable HTTP.
 
 ``/livez`` lives on the mechanism FastMCP server via ``@custom_route``
 and is reachable at ``/mechanism/livez``. Custom routes bypass FastMCP
@@ -20,21 +17,11 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from typing import TYPE_CHECKING
 
 import logfire
-from fastapi import FastAPI
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.routing import Mount
 
 from mechanism.cortex import mcp as cortex_mcp
-
-# Side-effect imports register handlers against the shared hooks router.
-from mechanism.hooks import (
-    anamneses,  # noqa: F401  # pyright: ignore[reportUnusedImport]
-    memories,  # noqa: F401  # pyright: ignore[reportUnusedImport]
-    reflection,  # noqa: F401  # pyright: ignore[reportUnusedImport]
-    timestamp,  # noqa: F401  # pyright: ignore[reportUnusedImport]
-)
-from mechanism.hooks import router as hooks_router
 from mechanism.mechanism import mcp as mechanism_mcp
 from mechanism.origin_validation import OriginValidationMiddleware
 from mechanism.redis_client import close_redis_client
@@ -48,10 +35,6 @@ if TYPE_CHECKING:
 _cortex_app = cortex_mcp.http_app(path="/mcp")
 _mechanism_app = mechanism_mcp.http_app(path="/mcp")
 _utils_app = utils_mcp.http_app(path="/mcp")
-
-# FastAPI sub-app for legacy `/hooks/*`. Retires in Phase 4 cleanup.
-_hooks_app = FastAPI()
-_hooks_app.include_router(hooks_router)
 
 
 def _scrubbing_callback(match: logfire.ScrubMatch) -> str | None:
@@ -96,7 +79,6 @@ async def _lifespan(app: Starlette) -> AsyncGenerator[None]:
         scrubbing=logfire.ScrubbingOptions(callback=_scrubbing_callback),
     )
     logfire.instrument_mcp()
-    _ = logfire.instrument_fastapi(_hooks_app)
     logfire.instrument_httpx()
     logfire.instrument_asyncpg()
     _ = logfire.instrument_openai()
@@ -118,6 +100,5 @@ app = Starlette(
         Mount("/cortex", _cortex_app),
         Mount("/mechanism", _mechanism_app),
         Mount("/utils", _utils_app),
-        Mount("/hooks", _hooks_app),
     ],
 )

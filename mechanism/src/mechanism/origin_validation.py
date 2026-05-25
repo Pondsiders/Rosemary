@@ -5,17 +5,15 @@ header on Streamable HTTP requests, to prevent DNS rebinding attacks
 where a malicious page loaded in a browser can trick the browser into
 making same-origin-looking requests to a localhost service.
 
-The same risk applies to the hook endpoints under `/hooks/*` (any HTTP
-endpoint reachable at localhost is vulnerable), so this middleware
-applies uniformly to the whole FastAPI app — both the mounted FastMCP
-sub-app at `/cortex/mcp` and the hook routes.
+The middleware applies uniformly to the Starlette parent — all three
+mounted FastMCP sub-apps (`/cortex/mcp`, `/mechanism/mcp`, `/utils/mcp`)
+and the unauthenticated `/mechanism/livez` custom route.
 
-For mechanism's deployment, the legitimate clients (Claude Code's
-MCP client, Claude Code's hook dispatcher, and the Docker healthcheck
-using `urllib.request`) don't include an `Origin` header on their
-requests. Browser-based clients legitimately accessing the dev stack
-(MCP Inspector et al.) would carry their own Origin and can be added
-to the allow-list when that workflow shows up.
+For mechanism's deployment, the legitimate clients (Claude Code's MCP
+client and the Docker healthcheck using `urllib.request`) don't include
+an `Origin` header on their requests. Browser-based clients legitimately
+accessing the dev stack (MCP Inspector et al.) would carry their own
+Origin and can be added to the allow-list when that workflow shows up.
 """
 
 from __future__ import annotations

@@ -1,16 +1,15 @@
 """Process-singleton async Redis client.
 
-Hook handlers — soon hook MCP tools — need Redis for per-session state:
+The mechanism MCP tools need Redis for per-session state:
 
-- ``last-msg:<session_id>`` — timestamp hook's previous-message timestamp
-- ``seen:<session_id>`` — memories hook's recall-dedupe set
-- ``reflection:turn:<session_id>`` — reflection hook's turn counter
+- ``last-msg:<session_id>`` — timestamp tool's previous-message timestamp
+- ``seen:<session_id>`` — memories tool's recall-dedupe set
+- ``reflection:turn:<session_id>`` — reflection tool's turn counter
 
-When hooks ran under FastAPI, the Redis client lived on
-``app.state.redis``, opened in the FastAPI lifespan. Under the Starlette
-parent + FastMCP serving shape, MCP-tool hooks don't have FastAPI-request
-scope. This module follows the same lazy-singleton pattern as ``db.py``
-and ``llm.py``.
+MCP-tool handlers don't have request scope, so the client is a lazy
+process-singleton — same pattern as ``db.py`` and ``llm.py``. Closed
+explicitly on app shutdown via ``close_redis_client()`` in the lifespan
+teardown.
 """
 
 from __future__ import annotations
