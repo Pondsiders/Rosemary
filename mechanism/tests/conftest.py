@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import redis.asyncio as redis
 from httpx import ASGITransport, AsyncClient
 from openai.types import CreateEmbeddingResponse, Embedding
 from openai.types.chat import ChatCompletion, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
 
 from mechanism import db
+from mechanism.redis_client import close_redis_client
 
 
 def pytest_configure(config: pytest.Config) -> None:  # pyright: ignore[reportUnusedParameter]
@@ -55,10 +55,10 @@ def pytest_configure(config: pytest.Config) -> None:  # pyright: ignore[reportUn
 
 
 @pytest.fixture(autouse=True)
-async def _clean_db_and_reset_pool() -> AsyncGenerator[None]:  # pyright: ignore[reportUnusedFunction]
-    """TRUNCATE the test data tables before each test; reset the asyncpg pool after.
+async def _reset_state_between_tests() -> AsyncGenerator[None]:  # pyright: ignore[reportUnusedFunction]
+    """TRUNCATE the test data tables before each test; reset async singletons after.
 
-    Two failure modes this addresses:
+    Three failure modes this addresses:
 
     1. **DB pollution between tests.** Without isolation, a row written by
        test A is visible to test B (e.g. `test_store_memory` leaves a real-
@@ -73,6 +73,13 @@ async def _clean_db_and_reset_pool() -> AsyncGenerator[None]:  # pyright: ignore
        poisons subsequent tests with `cannot perform operation: another
        operation is in progress`. Closing the pool after each test means
        the next test starts fresh.
+
+    3. **Redis client singleton poisoning across event loops.** Same shape
+       as the asyncpg case: `get_redis_client()` returns a process-singleton
+       async Redis client whose underlying connection is bound to whichever
+       event loop opened it. Closing the singleton after each test means
+       the next test's first `get_redis_client()` call gets a fresh client
+       bound to the new loop.
     """
     from mechanism.db import get_pool
 
@@ -85,6 +92,8 @@ async def _clean_db_and_reset_pool() -> AsyncGenerator[None]:  # pyright: ignore
     if db._pool is not None:  # pyright: ignore[reportPrivateUsage]
         await db._pool.close()  # pyright: ignore[reportPrivateUsage]
         db._pool = None  # pyright: ignore[reportPrivateUsage]
+
+    await close_redis_client()
 
 
 _EMBEDDING_DIMENSIONS = 2560  # Qwen 3 Embedding 4B; see llm.format_query_for_embedding.
@@ -159,10 +168,10 @@ def _ci_block_llm_calls(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ig
 
 
 @pytest.fixture
-async def seeded(_clean_db_and_reset_pool: None) -> None:
+async def seeded(_reset_state_between_tests: None) -> None:
     """Load `fixtures/seed.sql` on top of the post-TRUNCATE empty baseline.
 
-    Depends on `_clean_db_and_reset_pool` (the autouse TRUNCATE) so the seed
+    Depends on `_reset_state_between_tests` (the autouse TRUNCATE) so the seed
     lands into a clean cortex.memories / cortex.diary. Tests that need seed
     data declare `seeded` as a parameter; tests that don't get an empty DB
     (so e.g. the memories-hook no-op assertion stays meaningful).
@@ -251,19 +260,16 @@ def mock_llm(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[dict[str, Any]]]
 
 @pytest.fixture
 async def hooks_client() -> AsyncGenerator[AsyncClient]:
-    """An httpx AsyncClient for the FastAPI app, with Redis wired in directly.
+    """An httpx AsyncClient for the Starlette parent app.
 
-    Bypasses the full FastAPI lifespan (which handles production-only concerns
-    like Logfire configuration and the mounted MCP sub-apps' startup); hook
-    handlers only need `request.app.state.redis`, so we attach that and skip
-    the rest. Lifespan is a production-only concern; tests inject what each
-    handler actually requires.
+    Bypasses the full app lifespan (which handles production-only concerns
+    like Logfire configuration and the mounted MCP sub-apps' startup).
+    Redis is reached by handlers via `get_redis_client()` — the process-
+    singleton in `mechanism.redis_client` — so the fixture doesn't need to
+    wire it in. The autouse `_reset_state_between_tests` fixture closes the
+    singleton between tests so each test gets a client on its own event loop.
     """
     from mechanism.app import app
 
-    app.state.redis = redis.from_url(os.environ["REDIS_URL"], decode_responses=True)
-    try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            yield client
-    finally:
-        await app.state.redis.aclose()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        yield client
