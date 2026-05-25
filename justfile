@@ -1,11 +1,11 @@
-# Alpha dev environment recipes.
+# Dev environment recipes.
 # Run from the repo root: `just <recipe>`.
 
 # List recipes.
 default:
     @just --list
 
-# Start the dev environment (Postgres, Redis, and alpha-server on localhost:8001).
+# Start the dev environment (Postgres, Redis, and mechanism on localhost:8001).
 dev-up:
     docker compose -f compose-dev.yml up -d
 
@@ -13,7 +13,7 @@ dev-up:
 dev-down:
     docker compose -f compose-dev.yml down
 
-# Tail container logs. Forwards args, so `just dev-logs -f alpha-server` works.
+# Tail container logs. Forwards args, so `just dev-logs -f mechanism` works.
 dev-logs *args:
     docker compose -f compose-dev.yml logs {{args}}
 
