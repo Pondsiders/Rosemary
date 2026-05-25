@@ -23,3 +23,6 @@ compose.override.yml
 # evals
 mechanism/evals/.cache/
 mechanism/evals/suites/memories/
+
+# dev database dump
+alpha.dump
