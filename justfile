@@ -56,6 +56,7 @@ test: test-up
     cd mechanism && \
         TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/postgres \
         TEST_REDIS_URL=redis://127.0.0.1:56379/0 \
+        MECHANISM_TOKEN=test-token-not-a-real-secret \
         LOGFIRE_IGNORE_NO_CONFIG=1 \
         uv run pytest
 

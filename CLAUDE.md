@@ -68,7 +68,7 @@ The lifespan composes each mounted FastMCP server's session manager via `AsyncEx
 
 ### Auth
 
-`auth.py` builds a `StaticTokenVerifier` (FastMCP-native bearer-token validator) shared by all three FastMCP servers. When `MECHANISM_TOKEN` is unset in the environment, `get_auth_verifier()` returns `None` and the servers run unauthenticated — appropriate for local dev. Production sets the token via env var (CC's `settings.local.json` `env` block in deployed installs).
+`auth.py` builds a `StaticTokenVerifier` (FastMCP-native bearer-token validator) shared by all three FastMCP servers. `MECHANISM_TOKEN` is **required** — Settings has no default, so startup fails loudly if it's unset rather than silently serving every tool unauthenticated to anything on the tailnet. Local dev sets it in `.env`; production sets it via CC's `settings.local.json` `env` block (so the same value reaches both the server and the CC clients sending the bearer header).
 
 `/mechanism/livez` bypasses the verifier by design; it's a custom route on the mechanism server.
 
@@ -108,7 +108,7 @@ Three Redis key families share the database: `seen:<session_id>` (memories recal
 
 `settings.py` uses Pydantic Settings; `get_settings()` is `lru_cache`'d. The `.env` file is resolved relative to `settings.py` (three parents up = repo root), and `extra="forbid"` means a stray env var fails startup loudly.
 
-`LOGFIRE_TOKEN` and `OTEL_SERVICE_NAME` are both optional but coupled — a `model_validator` refuses to start if `LOGFIRE_TOKEN` is set without `OTEL_SERVICE_NAME`. Service identity is explicit per deploy, never inferred. `MECHANISM_TOKEN` is also optional; unset means the FastMCP servers run unauthenticated.
+`LOGFIRE_TOKEN` and `OTEL_SERVICE_NAME` are both optional but coupled — a `model_validator` refuses to start if `LOGFIRE_TOKEN` is set without `OTEL_SERVICE_NAME`. Service identity is explicit per deploy, never inferred. `MECHANISM_TOKEN` is required (no default); startup fails loudly if unset rather than silently running the FastMCP servers unauthenticated.
 
 ### Observability
 

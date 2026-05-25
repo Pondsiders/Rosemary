@@ -56,6 +56,9 @@ jobs:
       # LOGFIRE_TOKEN deliberately unset — settings.py validator refuses a
       # token without OTEL_SERVICE_NAME, and CI has no use for either.
       TIMEZONE: America/Los_Angeles
+      # MECHANISM_TOKEN is required by Settings; tests don't exercise auth,
+      # so any value works — it just has to be set so Settings instantiates.
+      MECHANISM_TOKEN: ci-token-not-a-real-secret
       LOGFIRE_IGNORE_NO_CONFIG: "1"
       MECHANISM_CI: "1"
 
