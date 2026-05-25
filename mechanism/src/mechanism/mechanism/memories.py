@@ -26,7 +26,8 @@ from typing import Any, cast
 
 import logfire
 import numpy as np
-from mcp.types import ToolAnnotations
+from fastmcp.tools.base import ToolResult
+from mcp.types import TextContent, ToolAnnotations
 
 from mechanism import clock, llm
 from mechanism.db import get_pool
@@ -68,18 +69,39 @@ SELECT id,
         openWorldHint=False,
     ),
 )
-async def memories(prompt: str, session_id: str) -> dict[str, dict[str, str]] | None:
-    """Run the recall pipeline; return matched memories as additionalContext."""
+async def memories(prompt: str, session_id: str) -> ToolResult | None:
+    """Run the recall pipeline; return matched memories as additionalContext.
+
+    Returns a ``ToolResult`` carrying the Claude Code UserPromptSubmit hook
+    envelope when the recall pipeline surfaces at least one memory. Returns
+    ``None`` otherwise.
+
+    Why ``ToolResult | None`` rather than ``dict | None``: FastMCP wraps
+    ``dict | None`` returns in a ``{"result": ...}`` envelope because the
+    schema can't be a strict object root when the value may be null. That
+    wrapper poisons Claude Code's hook parser: in the no-op path it sees
+    ``{"result": null}`` instead of an empty response. Returning
+    ``ToolResult`` bypasses the automatic wrapping (FastMCP's docs: "When
+    returning ToolResult, you have full control - FastMCP won't
+    automatically wrap or transform your data"), and ``None`` produces a
+    true empty response: ``content=[]``, ``structuredContent=None``. See
+    ``anamneses.py`` for the matching pattern; the upstream Claude Code
+    issue is tracked as Pondsiders/Alpha#24.
+    """
     with logfire.span("memories {session_id}", session_id=session_id):
         additional_context = await _run(prompt, session_id)
     if not additional_context:
         return None
-    return {
+    envelope = {
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
             "additionalContext": additional_context,
         }
     }
+    return ToolResult(
+        content=[TextContent(type="text", text=json.dumps(envelope))],
+        structured_content=envelope,
+    )
 
 
 async def _run(prompt: str, session_id: str) -> str:
