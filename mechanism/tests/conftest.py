@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
@@ -12,46 +13,86 @@ from httpx import ASGITransport, AsyncClient
 from openai.types import CreateEmbeddingResponse, Embedding
 from openai.types.chat import ChatCompletion, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
+from testcontainers.postgres import PostgresContainer  # pyright: ignore[reportMissingTypeStubs]
+from testcontainers.redis import RedisContainer  # pyright: ignore[reportMissingTypeStubs]
 
 from mechanism import db
 from mechanism.redis_client import close_redis_client
 
+_SCHEMA_SQL_PATH = Path(__file__).parent / "fixtures" / "schema.sql"
+_SEED_SQL_PATH = Path(__file__).parent / "fixtures" / "seed.sql"
+_EMBEDDING_DIMENSIONS = 2560  # Qwen 3 Embedding 4B; see llm.format_query_for_embedding.
+
+_postgres_container: PostgresContainer | None = None
+_redis_container: RedisContainer | None = None
+
 
 def pytest_configure(config: pytest.Config) -> None:  # pyright: ignore[reportUnusedParameter]
-    """Refuse to run unless the test environment is explicitly configured.
+    """Start ephemeral pgvector + redis containers; wire DATABASE_URL/REDIS_URL.
 
-    Loud safety net against the failure mode that produced #10: pytest
-    reaching for a `DATABASE_URL` that happens to be set to production.
-    Production code only ever reads `DATABASE_URL` / `REDIS_URL`; this hook
-    rewrites them from the `TEST_*` values at session start, so
-    `get_settings()` (lru_cached) picks up the test values on first call.
+    Each pytest session starts its own containers on random host ports, so
+    multiple sessions (e.g. parallel issue-fixer agents in separate worktrees)
+    can run without colliding. The containers are torn down in
+    pytest_unconfigure at session end.
 
-    The TEST_* vars must be set AND must differ from the production URLs.
-    A missing or matching value causes pytest to exit immediately.
+    Runs before any test collection, so the env vars are set before any
+    mechanism module is imported and before settings.get_settings() is cached.
     """
-    test_db = os.environ.get("TEST_DATABASE_URL")
-    test_redis = os.environ.get("TEST_REDIS_URL")
-    if not test_db or not test_redis:
-        pytest.exit(
-            "TEST_DATABASE_URL and TEST_REDIS_URL are required for the test"
-            + " suite. Run `just test-up` and set both vars (see the `test`"
-            + " recipe in the justfile for the canonical values).",
-            returncode=2,
-        )
-    if test_db == os.environ.get("DATABASE_URL"):
-        pytest.exit(
-            "TEST_DATABASE_URL equals DATABASE_URL."
-            + " Refusing to run tests against the production database.",
-            returncode=2,
-        )
-    if test_redis == os.environ.get("REDIS_URL"):
-        pytest.exit(
-            "TEST_REDIS_URL equals REDIS_URL."
-            + " Refusing to run tests against the production Redis.",
-            returncode=2,
-        )
-    os.environ["DATABASE_URL"] = test_db
-    os.environ["REDIS_URL"] = test_redis
+    global _postgres_container, _redis_container
+
+    _postgres_container = PostgresContainer(
+        "pgvector/pgvector:pg17",
+        username="postgres",
+        password="postgres",
+        dbname="postgres",
+        driver=None,
+    )
+    _ = _postgres_container.start()
+
+    _redis_container = RedisContainer("redis:8")
+    _ = _redis_container.start()
+
+    pg_host = _postgres_container.get_container_host_ip()
+    pg_port = _postgres_container.get_exposed_port(5432)
+    redis_host = _redis_container.get_container_host_ip()
+    redis_port = _redis_container.get_exposed_port(6379)
+
+    os.environ["DATABASE_URL"] = f"postgresql://postgres:postgres@{pg_host}:{pg_port}/postgres"
+    os.environ["REDIS_URL"] = f"redis://{redis_host}:{redis_port}/0"
+
+    # Load schema.sql via host psql. The schema is a pg_dump output containing
+    # psql meta-commands (\restrict etc.) that psycopg can't execute directly.
+    _ = subprocess.run(
+        [
+            "psql",
+            "-h",
+            pg_host,
+            "-p",
+            str(pg_port),
+            "-U",
+            "postgres",
+            "-d",
+            "postgres",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-f",
+            str(_SCHEMA_SQL_PATH),
+        ],
+        env={**os.environ, "PGPASSWORD": "postgres"},
+        check=True,
+        capture_output=True,
+    )
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:  # pyright: ignore[reportUnusedParameter]
+    """Stop the testcontainers at session end."""
+    global _postgres_container, _redis_container
+    if _postgres_container is not None:
+        _postgres_container.stop()
+        _postgres_container = None
+    if _redis_container is not None:
+        _redis_container.stop()
+        _redis_container = None
 
 
 @pytest.fixture(autouse=True)
@@ -94,11 +135,6 @@ async def _reset_state_between_tests() -> AsyncGenerator[None]:  # pyright: igno
         db._pool = None  # pyright: ignore[reportPrivateUsage]
 
     await close_redis_client()
-
-
-_EMBEDDING_DIMENSIONS = 2560  # Qwen 3 Embedding 4B; see llm.format_query_for_embedding.
-
-_SEED_SQL_PATH = Path(__file__).parent / "fixtures" / "seed.sql"
 
 
 def _zero_embedding_response(n_inputs: int) -> CreateEmbeddingResponse:

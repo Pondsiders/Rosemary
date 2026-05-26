@@ -29,6 +29,7 @@ dev = [
     "respx>=0.22",
     "ruff>=0.6",
     "asyncpg-stubs>=0.31",
+    "testcontainers[postgres,redis]>=4.14.2",
 ]
 
 eval = [
@@ -66,7 +67,7 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["D104"]
 "__main__.py" = ["D100"]
-"tests/**/*.py" = ["S101", "D100", "D101", "D102", "D103"]
+"tests/**/*.py" = ["S101", "S106", "S603", "S607", "D100", "D101", "D102", "D103"]
 
 [tool.basedpyright]
 include = ["src", "tests"]

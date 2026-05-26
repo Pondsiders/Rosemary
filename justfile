@@ -31,37 +31,16 @@ dev-init dump:
         --no-acl \
         < {{dump}}
 
-# Start the isolated test stack (Postgres on 127.0.0.1:55432, Redis on 127.0.0.1:56379).
-test-up:
-    docker compose -f compose-test.yml up -d --wait
-
-# Stop the test stack (preserves the data volume).
-test-down:
-    docker compose -f compose-test.yml down
-
-# Wipe the test Postgres volume, bring services up fresh, load schema.sql.
-test-init:
-    docker compose -f compose-test.yml down -v
-    docker compose -f compose-test.yml up -d --wait
-    docker compose -f compose-test.yml exec -T postgres psql \
-        --username=postgres \
-        --dbname=postgres \
-        --single-transaction \
-        < mechanism/tests/fixtures/schema.sql
-
-# Run the pytest suite against the test stack.
-# Sets TEST_DATABASE_URL/TEST_REDIS_URL pointing at compose-test's services;
-# conftest.py rewrites DATABASE_URL/REDIS_URL from them at session start.
-test: test-up
+# Run the pytest suite. conftest.py spins up ephemeral pgvector + redis
+# containers via Testcontainers, loads schema.sql, and tears them down at
+# session end. Multiple sessions (e.g. parallel issue-fixer agents) can
+# run without colliding because each session gets its own containers on
+# random host ports.
+test:
     cd mechanism && \
-        TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/postgres \
-        TEST_REDIS_URL=redis://127.0.0.1:56379/0 \
         MECHANISM_TOKEN=test-token-not-a-real-secret \
         LOGFIRE_IGNORE_NO_CONFIG=1 \
         uv run pytest
-
-# Wipe and re-init the test stack, then run the suite.
-test-reset: test-init test
 
 # Materialize seed.sql by filling embeddings into seed.sql.template via Bifrost.
 # Run after editing the template, or after swapping embedding models.
