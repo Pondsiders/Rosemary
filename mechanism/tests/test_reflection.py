@@ -1,28 +1,25 @@
 """Integration tests for the `reflection` MCP tool.
 
-Pins the contract without coupling to the cadence value:
+Pins the wire shape for three paths:
 
-1. Within a sample window generous enough for any realistic cadence
-   period (10 turns easily covers any "every Nth" gate for N ≤ 9), the
-   tool fires at least once for a fresh session, and when it does, the
-   shape is ``{"decision": "block", "reason": "...Between turns..."}``.
-2. ``stop_hook_active=True`` is always a no-op — the recursion guard
-   short-circuits before the gate is evaluated, so this property is
-   independent of cadence.
+- Fire: ``content`` is a single ``TextContent`` with the Stop-hook
+  decision payload as JSON text; ``structured_content`` is None.
+- Cadence no-op: ``content=[]``, ``structured_content=None``.
+- ``stop_hook_active=True``: same empty-response shape as the cadence
+  no-op.
 
-Tuning the gate (e.g. switching from "every 3rd starting at turn 1" to
-"every 5th starting at turn 5") does not break these tests as long as
-the cadence period stays below ``_SAMPLE_WINDOW``. If the period ever
-needs to exceed that, raise ``_SAMPLE_WINDOW`` in lockstep with the
-gate; no other test logic changes.
+Tuning the cadence doesn't break these tests as long as the period
+stays below ``_SAMPLE_WINDOW``.
 """
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
 from fastmcp import Client
+from mcp.types import TextContent
 
 from mechanism.mechanism import mcp
 
@@ -31,31 +28,60 @@ _SAMPLE_WINDOW = 10
 
 
 async def test_reflection_fires_within_sample_window() -> None:
-    """At least one of the first `_SAMPLE_WINDOW` turns fires with the documented shape."""
+    """At least one of the first `_SAMPLE_WINDOW` turns fires with the documented wire shape."""
     session_id = str(uuid.uuid4())
 
-    fires: list[dict[str, Any]] = []
+    fires: list[Any] = []
     async with Client(mcp) as client:
         for _ in range(_SAMPLE_WINDOW):
             result = await client.call_tool(
                 "reflection",
                 {"session_id": session_id, "stop_hook_active": False},
             )
-            # Fire: tool returned a dict (unwrapped form on .data).
-            # No-fire: tool returned None.
-            if result.data is not None:
-                fires.append(result.data)
+            if result.content:
+                fires.append(result)
 
     assert fires, (
         f"reflection should fire at least once within {_SAMPLE_WINDOW} turns "
         f"for any realistic cadence period; got zero fires"
     )
 
-    # The fire shape is the load-bearing contract; pin it against a
-    # representative fire (the first one).
     sample = fires[0]
-    assert sample["decision"] == "block"
-    assert "Between turns" in sample["reason"]
+    assert sample.is_error is False
+    assert sample.structured_content is None
+    assert len(sample.content) == 1
+    block = sample.content[0]
+    assert isinstance(block, TextContent)
+    assert block.type == "text"
+
+    envelope = json.loads(block.text)
+    assert envelope["decision"] == "block"
+    assert "Between turns" in envelope["reason"]
+
+
+async def test_reflection_no_op_within_cadence_window() -> None:
+    """At least one of the first `_SAMPLE_WINDOW` turns is a no-op with an empty MCP response."""
+    session_id = str(uuid.uuid4())
+
+    no_ops: list[Any] = []
+    async with Client(mcp) as client:
+        for _ in range(_SAMPLE_WINDOW):
+            result = await client.call_tool(
+                "reflection",
+                {"session_id": session_id, "stop_hook_active": False},
+            )
+            if not result.content:
+                no_ops.append(result)
+
+    assert no_ops, (
+        f"reflection should no-op at least once within {_SAMPLE_WINDOW} turns "
+        f"for any realistic cadence period; got zero no-ops"
+    )
+
+    sample = no_ops[0]
+    assert sample.is_error is False
+    assert sample.content == []
+    assert sample.structured_content is None
 
 
 async def test_reflection_no_op_when_stop_hook_active() -> None:
@@ -68,4 +94,6 @@ async def test_reflection_no_op_when_stop_hook_active() -> None:
             {"session_id": session_id, "stop_hook_active": True},
         )
 
-    assert result.data is None
+    assert result.is_error is False
+    assert result.content == []
+    assert result.structured_content is None

@@ -1,14 +1,10 @@
 """The `anamneses` tool — explicit-reference recall on UserPromptSubmit.
 
-Port of the `/hooks/anamneses` HTTP handler to an MCP tool on the
-mechanism server. Companion to the `memories` tool: where `memories`
-does general semantic recall, `anamneses` listens for *explicit*
-references to past conversations or events ("do you remember," "didn't
-we once," "back when we") and produces targeted queries for those
-specific moments.
-
-Most prompts don't contain anamnesis. The chat model returns ``[]`` and
-the tool returns ``None``, costing only the Qwen call.
+Listens for explicit references to past conversations or events ("do you
+remember," "didn't we once," "back when we") and runs targeted recall
+queries against `cortex.memories`. Returns matched memories as
+``additionalContext``, or None when no anamnesis is detected (the common
+case).
 
 Shares the ``seen:<session_id>`` Redis key with `memories` so a memory
 surfaced by either tool doesn't get re-surfaced by the other within a
@@ -71,23 +67,7 @@ SELECT id,
     meta={"anthropic/alwaysLoad": True},
 )
 async def anamneses(prompt: str, session_id: str) -> ToolResult | None:
-    """Run the explicit-reference recall pipeline; return matched memories as additionalContext.
-
-    Returns a ``ToolResult`` carrying the Claude Code UserPromptSubmit hook
-    envelope when an anamnesis is detected and at least one matching memory
-    survives the cosine cutoff. Returns ``None`` otherwise — most prompts.
-
-    Why ``ToolResult | None`` rather than ``dict | None``: FastMCP wraps
-    ``dict | None`` returns in a ``{"result": ...}`` envelope because the
-    schema can't be a strict object root when the value may be null. That
-    wrapper poisons Claude Code's hook parser: in the no-op path it sees
-    ``{"result": null}`` instead of an empty response and injects a default
-    "hook success" status string as fallback ``additionalContext``. Returning
-    ``ToolResult`` bypasses the automatic wrapping entirely (FastMCP's docs:
-    "When returning ToolResult, you have full control - FastMCP won't
-    automatically wrap or transform your data"), and ``None`` produces a
-    true empty response: ``content=[]``, ``structuredContent=None``.
-    """
+    """Run the explicit-reference recall pipeline; return matched memories as additionalContext."""
     with logfire.span("anamneses {session_id}", session_id=session_id):
         additional_context = await _run(prompt, session_id)
     if not additional_context:

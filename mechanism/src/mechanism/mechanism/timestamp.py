@@ -1,17 +1,7 @@
 """The `timestamp` tool — temporal grounding for UserPromptSubmit.
 
-Minimal prototype: returns the Claude Code hook output schema with a
-one-line "was sent at" `additionalContext`. No Redis dependence, no
-"elapsed since previous message" clause — those come back when this
-shape is validated.
-
-Returns a plain dict, not a primitive string or a Pydantic model.
-FastMCP wraps primitive returns in `{"result": ...}` structured content,
-which Claude Code's hook layer doesn't recognize. Pydantic models with
-`serialization_alias` need `by_alias=True` at dump time, which FastMCP
-doesn't promise. A plain dict with string-literal camelCase keys passes
-through FastMCP cleanly: the keys are clearly Claude-Code's schema, not
-our Python convention.
+Returns a Claude Code UserPromptSubmit hook envelope with the current
+local timestamp as ``additionalContext``.
 """
 
 from __future__ import annotations

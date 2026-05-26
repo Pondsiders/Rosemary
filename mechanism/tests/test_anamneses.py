@@ -1,45 +1,22 @@
 """Integration tests for the `anamneses` MCP tool.
 
-Two contracts pinned:
+Pins the wire shape for two paths:
 
-1. **Match path** — when the recall pipeline surfaces at least one memory,
-   ``anamneses`` returns the Claude Code UserPromptSubmit hook envelope
-   verbatim::
-
-       {
-         "hookSpecificOutput": {
-           "hookEventName": "UserPromptSubmit",
-           "additionalContext": "<string>"
-         }
-       }
-
-   The envelope must be unwrapped (no ``{"result": ...}`` outer key) so
-   Claude Code's hook parser reads the canonical shape per
-   code.claude.com/docs/en/hooks#userpromptsubmit.
-
-2. **No-op path** — when chat extracts no queries (the common case), the
-   tool returns a true empty MCP response: ``content == []`` and
-   ``structured_content is None``. Load-bearing contract for the fix
-   tracked at Pondsiders/Alpha#24: anything else (even
-   ``{"result": null}``, which is what ``dict | None`` returns produce
-   via FastMCP's primitive wrapping) triggers Claude Code's fallback
-   "hook success: completed" status-string injection.
-
-The match test stubs chat + embedding wire via ``mock_llm``; zero-vector
-cosine against seeded data yields NaN scores that don't trip the
-``_MIN_COSINE=0.1`` filter (``nan < 0.1`` is False in Python), so seeded
-rows pass through and the envelope carries ``## Memory #...`` formatted
-blocks. The no-op test stubs chat to return ``"[]"``, short-circuiting
-before any embedding work.
+- Match: ``structured_content`` is the UserPromptSubmit hook envelope
+  ``{"hookSpecificOutput": {"hookEventName": ..., "additionalContext": ...}}``;
+  ``content`` carries the same envelope as a JSON-encoded ``TextContent``.
+- No-op: ``content=[]``, ``structured_content=None``.
 """
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
 import pytest
 from fastmcp import Client
+from mcp.types import TextContent
 from openai.types.chat import ChatCompletion, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
 
@@ -50,7 +27,7 @@ async def test_anamneses_match_returns_user_prompt_submit_envelope(
     seeded: None,  # pyright: ignore[reportUnusedParameter]
     mock_llm: dict[str, list[dict[str, Any]]],
 ) -> None:
-    """anamneses() returns a UserPromptSubmit hook envelope with formatted memory blocks."""
+    """anamneses() returns a UserPromptSubmit hook envelope on both wire surfaces."""
     session_id = str(uuid.uuid4())
 
     async with Client(mcp) as client:
@@ -60,18 +37,23 @@ async def test_anamneses_match_returns_user_prompt_submit_envelope(
         )
 
     assert result.is_error is False
-    # One chat call (query extraction) followed by one batched embedding call.
     assert len(mock_llm["chat_calls"]) == 1
     assert len(mock_llm["embed_calls"]) == 1
 
-    # The hook envelope contract per code.claude.com/docs/en/hooks#userpromptsubmit:
-    # {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "..."}}
-    envelope: dict[str, Any] = result.data
-    hook_output = envelope["hookSpecificOutput"]
+    assert result.structured_content is not None
+    structured: dict[str, Any] = result.structured_content
+    hook_output = structured["hookSpecificOutput"]
     assert hook_output["hookEventName"] == "UserPromptSubmit"
     additional_context = hook_output["additionalContext"]
     assert isinstance(additional_context, str)
     assert additional_context.startswith("## Memory #")
+
+    assert len(result.content) == 1
+    block = result.content[0]
+    assert isinstance(block, TextContent)
+    assert block.type == "text"
+    text_envelope = json.loads(block.text)
+    assert text_envelope == structured
 
 
 async def test_anamneses_no_match_returns_empty_mcp_response(
@@ -105,8 +87,5 @@ async def test_anamneses_no_match_returns_empty_mcp_response(
         )
 
     assert result.is_error is False
-    # The load-bearing contract for #24: truly empty MCP response. No content
-    # blocks, no structured payload. Anything else (notably {"result": null})
-    # triggers Claude Code's fallback "hook success: completed" injection.
     assert result.content == []
     assert result.structured_content is None
