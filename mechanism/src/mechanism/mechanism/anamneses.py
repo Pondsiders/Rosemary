@@ -68,6 +68,7 @@ SELECT id,
         idempotentHint=False,
         openWorldHint=False,
     ),
+    meta={"anthropic/alwaysLoad": True},
 )
 async def anamneses(prompt: str, session_id: str) -> ToolResult | None:
     """Run the explicit-reference recall pipeline; return matched memories as additionalContext.

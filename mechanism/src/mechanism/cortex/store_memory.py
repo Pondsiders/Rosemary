@@ -34,6 +34,7 @@ RETURNING id, created_at
         idempotentHint=False,
         openWorldHint=False,
     ),
+    meta={"anthropic/alwaysLoad": True},
 )
 async def store_memory(
     content: Annotated[

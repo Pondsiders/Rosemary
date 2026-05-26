@@ -119,7 +119,10 @@ async def _fetch_and_extract(url: str) -> tuple[str, str]:
         readOnlyHint=True,
         openWorldHint=True,
     ),
-    meta={"anthropic/maxResultSizeChars": 400000},
+    meta={
+        "anthropic/maxResultSizeChars": 400000,
+        "anthropic/alwaysLoad": True,
+    },
 )
 async def fetch(
     url: Annotated[

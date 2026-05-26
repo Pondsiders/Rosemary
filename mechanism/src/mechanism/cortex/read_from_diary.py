@@ -17,7 +17,10 @@ from mechanism.db import get_pool
         readOnlyHint=True,
         openWorldHint=False,
     ),
-    meta={"anthropic/maxResultSizeChars": 400000},
+    meta={
+        "anthropic/maxResultSizeChars": 400000,
+        "anthropic/alwaysLoad": True,
+    },
 )
 async def read_from_diary() -> list[DiaryEntry]:
     """Return entries from the last two diary pages, anchored to the latest entry.

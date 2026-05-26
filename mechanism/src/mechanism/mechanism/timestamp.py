@@ -35,6 +35,7 @@ from mechanism.mechanism.server import mcp
         idempotentHint=False,
         openWorldHint=False,
     ),
+    meta={"anthropic/alwaysLoad": True},
 )
 async def timestamp() -> dict[str, dict[str, str]]:
     """Return a UserPromptSubmit hook response with a one-line timestamp note."""

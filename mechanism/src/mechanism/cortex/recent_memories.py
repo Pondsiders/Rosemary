@@ -33,7 +33,10 @@ SELECT id, content, created_at
         readOnlyHint=True,
         openWorldHint=False,
     ),
-    meta={"anthropic/maxResultSizeChars": 400000},
+    meta={
+        "anthropic/maxResultSizeChars": 400000,
+        "anthropic/alwaysLoad": True,
+    },
 )
 async def recent_memories(
     limit: Annotated[

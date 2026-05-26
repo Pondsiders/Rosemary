@@ -22,6 +22,7 @@ from mechanism.db import get_pool
         idempotentHint=False,
         openWorldHint=False,
     ),
+    meta={"anthropic/alwaysLoad": True},
 )
 async def add_to_diary(content: str) -> DiaryResult:
     """Insert a row into cortex.diary with the given content.
