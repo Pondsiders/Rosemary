@@ -25,8 +25,8 @@ _REMINDER_TEXT = get_prompt("reflection_user")
 
 
 def _gate(turn: int) -> bool:
-    """Return True on turns 1, 4, 7, 10, ... — every third turn starting at 1."""
-    return (turn - 1) % 3 == 0
+    """Return True on turns 3, 6, 9, 12, ... — every third turn starting at 3."""
+    return turn % 3 == 0
 
 
 @mcp.tool(
