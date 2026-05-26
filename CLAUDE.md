@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Special rule for this repository specifically
 
-Don't commit anything to git until Jeffery has had a chance to review and approve it.
+Don't merge any code to main until Jeffery has had a chance to review and approve it.
 
 ## Git conventions
 
