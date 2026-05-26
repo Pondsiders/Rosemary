@@ -8,7 +8,7 @@ Don't merge any code to main until Jeffery has had a chance to review and approv
 
 ## Git conventions
 
-Use conventional-commit style for commit messages. Unless otherwise noted, the first author on Git commits should be "Alpha <alpha@alphafornow.com>" with co-authored-by going to "Jeffery Harrell <jefferyharrell@gmail.com>".
+Use conventional-commit style for commit messages.
 
 ## Repository layout
 
