@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.0.1 (2026-05-27)
+
+### Bug Fixes
+
+- **ci**: Unblock tag-triggered workflows and stay in 0.x by default
+  ([#64](https://github.com/Pondsiders/Alpha/pull/64),
+  [`a331121`](https://github.com/Pondsiders/Alpha/commit/a3311211b7781db9db28bfb8ebb78fffc796337c))
+
+
 ## v1.0.0 (2026-05-27)
 
 ### Bug Fixes
