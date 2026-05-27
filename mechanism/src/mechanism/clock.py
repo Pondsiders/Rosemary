@@ -68,6 +68,47 @@ def parse_when(value: str) -> datetime | None:
     )
 
 
+def from_iso(value: str) -> pendulum.DateTime:
+    """Parse a strict ISO 8601 timestamp string into a Pendulum DateTime.
+
+    Stricter than `parse_when` — only accepts a full timestamp (date + time
+    + offset), raising on anything else. Use this for round-tripping values
+    we produced ourselves via `utc_iso` or `DateTime.isoformat()`.
+
+    Args:
+        value: An ISO 8601 timestamp string.
+
+    Returns:
+        The parsed timezone-aware Pendulum DateTime.
+
+    Raises:
+        ValueError: If `value` doesn't parse to a full timestamp.
+    """
+    parsed = pendulum.parse(value)
+    if not isinstance(parsed, pendulum.DateTime):
+        msg = f"expected ISO 8601 timestamp, got {type(parsed).__name__}: {value!r}"
+        raise ValueError(msg)
+    return parsed
+
+
+def utc_iso(dt: datetime | pendulum.DateTime) -> str:
+    """Format a datetime as an ISO 8601 string normalized to UTC.
+
+    Counterpart to `pso8601` (which formats for human reading in
+    `LOCAL_TZ`). Use this anywhere we're writing a timestamp for
+    storage, wire transport, or any context where the consumer will
+    render its own locale — same shape as how Postgres `timestamptz`
+    columns travel and how wire events carry `createdAt` etc.
+
+    Args:
+        dt: A timezone-aware datetime.
+
+    Returns:
+        An ISO 8601 timestamp string in UTC (`"...+00:00"`).
+    """
+    return pendulum.instance(dt).in_timezone("UTC").isoformat()
+
+
 def pso8601(dt: datetime | pendulum.DateTime) -> str:
     """Format a datetime in PSO-8601 (the household register).
 
