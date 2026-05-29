@@ -45,7 +45,6 @@ _MIN_SCORE = 0.1
 _KYLEE_PENALTY = 0.15
 _SAGE_PENALTY = 0.25
 _SEEN_TTL_SECONDS = 7 * 24 * 60 * 60  # one week
-_MAX_CONTENT_CHARS = 500  # archive messages can be long; cap each hit.
 _MAX_OUTPUT_CHARS = 9990  # Claude Code caps additionalContext at 10K; leave headroom.
 
 _SEARCH_SQL = """
@@ -262,11 +261,14 @@ async def _run(prompt: str, session_id: str) -> str:
 
 
 def _format_hit(m: dict[str, Any]) -> str:
-    """Format one archive hit as a Markdown block."""
+    """Format one archive hit as a Markdown block.
+
+    Content is emitted whole — no per-hit truncation. The ``_MAX_OUTPUT_CHARS``
+    buffer fills from the top in rank order and drops the tail, so a long,
+    high-ranking passage is shown in full even if it pushes weaker matches off
+    the bottom. (A single block exceeding the cap is hard-sliced in ``_run``.)
+    """
     speaker = "Kylee" if m["speaker"] == "kylee" else "Sage"
-    content = m["content"]
-    if len(content) > _MAX_CONTENT_CHARS:
-        content = content[:_MAX_CONTENT_CHARS].rstrip() + "…"
     lines = [
         f"## From the Sage archive — {speaker} said",
         "",
@@ -276,6 +278,6 @@ def _format_hit(m: dict[str, Any]) -> str:
         f"- query: {m['query']!r}",
         f"- score: {m['score']:.2f}",
         "",
-        content,
+        m["content"],
     ]
     return "\n".join(lines)
