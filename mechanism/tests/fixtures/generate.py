@@ -10,7 +10,7 @@
 
 Reads `seed.sql.template`, finds every `{{EMBED:<text>}}` placeholder, calls
 Bifrost (the embedding model production uses) once per unique text, and
-substitutes the resulting 2560-float vector as a Postgres array literal.
+substitutes the resulting embedding vector as a Postgres array literal.
 
 Usage:
     cd <repo-root>

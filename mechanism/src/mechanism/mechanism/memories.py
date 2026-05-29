@@ -38,12 +38,12 @@ _SEARCH_SQL = """
 SELECT id,
        content,
        created_at,
-       1 - (embedding_qwen <=> $1) AS score
+       1 - (embedding <=> $1) AS score
   FROM cortex.memories
  WHERE NOT forgotten
-   AND embedding_qwen IS NOT NULL
+   AND embedding IS NOT NULL
    AND NOT (id = ANY($2::int[]))
- ORDER BY embedding_qwen <=> $1
+ ORDER BY embedding <=> $1
  LIMIT $3
 """
 
