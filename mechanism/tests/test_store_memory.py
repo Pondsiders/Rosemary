@@ -37,7 +37,7 @@ async def test_store_memory_writes_row_with_embedding() -> None:
 
     # Verify the row actually landed with content + a real embedding.
     sql = """
-        SELECT content, embedding_qwen IS NOT NULL AS has_embedding
+        SELECT content, embedding IS NOT NULL AS has_embedding
           FROM cortex.memories
          WHERE id = $1
     """

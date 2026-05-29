@@ -23,7 +23,7 @@ from mechanism.settings import Settings
 
 _SCHEMA_SQL_PATH = Path(__file__).parent / "fixtures" / "schema.sql"
 _SEED_SQL_PATH = Path(__file__).parent / "fixtures" / "seed.sql"
-_EMBEDDING_DIMENSIONS = 2560  # Qwen 3 Embedding 4B; see llm.format_query_for_embedding.
+_EMBEDDING_DIMENSIONS = 768  # nomic-embed-text; see llm.format_query_for_embedding.
 
 _postgres_container: PostgresContainer | None = None
 _redis_container: RedisContainer | None = None

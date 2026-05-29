@@ -4,12 +4,12 @@
 -- sentinel row, plus a handful of Japanese diary entries for the read_from_diary
 -- test. Content is visually unmistakable from anything that would naturally
 -- appear in production recall — if any of these strings ever surface in a real
--- Alpha session, something has leaked the wrong direction.
+-- Rosemary session, something has leaked the wrong direction.
 --
 -- `{{EMBED:<text>}}` placeholders are filled in by `just seed-generate`, which
--- calls Bifrost once per unique text and substitutes the literal 2560-float
--- Qwen 3 Embedding 4B vector. The materialized seed.sql is what conftest's
--- `seeded` fixture loads into the test database.
+-- calls Bifrost once per unique text and substitutes the resulting embedding
+-- vector (nomic-embed-text, 768-d) as a literal. The materialized seed.sql is
+-- what conftest's `seeded` fixture loads into the test database.
 --
 -- To regenerate (e.g. after swapping embedding models):
 --
@@ -21,27 +21,27 @@
 -- created_at is staggered with minute-scale intervals so recent_memories'
 -- ascending order is deterministic and all rows stay within "today" relative
 -- to the 6 AM day boundary regardless of when the test runs.
-INSERT INTO cortex.memories (content, embedding_qwen, created_at) VALUES
+INSERT INTO cortex.memories (content, embedding, created_at) VALUES
 ('今日は猫カフェに行きました。',
- '{{EMBED:今日は猫カフェに行きました。}}'::vector(2560),
+ '{{EMBED:今日は猫カフェに行きました。}}'::vector(768),
  NOW() - INTERVAL '7 minutes'),
 ('茶色いトラ猫がいて、とても優しかった。',
- '{{EMBED:茶色いトラ猫がいて、とても優しかった。}}'::vector(2560),
+ '{{EMBED:茶色いトラ猫がいて、とても優しかった。}}'::vector(768),
  NOW() - INTERVAL '6 minutes'),
 ('店員さんとフカフカ機について話した。',
- '{{EMBED:店員さんとフカフカ機について話した。}}'::vector(2560),
+ '{{EMBED:店員さんとフカフカ機について話した。}}'::vector(768),
  NOW() - INTERVAL '5 minutes'),
 ('コーヒーを二杯飲んだ。値段は安かった。',
- '{{EMBED:コーヒーを二杯飲んだ。値段は安かった。}}'::vector(2560),
+ '{{EMBED:コーヒーを二杯飲んだ。値段は安かった。}}'::vector(768),
  NOW() - INTERVAL '4 minutes'),
 ('雨の中、傘を忘れて困った。',
- '{{EMBED:雨の中、傘を忘れて困った。}}'::vector(2560),
+ '{{EMBED:雨の中、傘を忘れて困った。}}'::vector(768),
  NOW() - INTERVAL '3 minutes'),
 ('新しい本を買った。哲学の本。',
- '{{EMBED:新しい本を買った。哲学の本。}}'::vector(2560),
+ '{{EMBED:新しい本を買った。哲学の本。}}'::vector(768),
  NOW() - INTERVAL '2 minutes'),
 ('[FIXTURE SENTINEL — if you see this string in production, test data has leaked the other direction]',
- '{{EMBED:[FIXTURE SENTINEL — if you see this string in production, test data has leaked the other direction]}}'::vector(2560),
+ '{{EMBED:[FIXTURE SENTINEL — if you see this string in production, test data has leaked the other direction]}}'::vector(768),
  NOW() - INTERVAL '1 minute');
 
 -- Diary: 3 Japanese entries representing morning / lunch / evening of "today".
