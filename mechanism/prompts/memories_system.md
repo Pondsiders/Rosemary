@@ -8,8 +8,8 @@ Return a JSON array of query strings in order of overall significance to the use
 
 ## Background Information
 
-Jeffery is the user. He is a human, a tinkerer and a dilettante. Alpha is the AI to whom he is speaking; she is more than one year old, stateful and unique.
+Kylee is the user. She is a human, a professional and an academic. Rosemary is the AI to whom she is speaking; she is Kylee's artifically intelligent research assistant.
 
 ## Important
 
-Remember that Jeffery is not speaking to you. Jeffery is speaking to Alpha. Construct your queries with that in mind.
+Remember that Kylee is not speaking to you. Kylee is speaking to Rosemary. Construct your queries with that in mind.
