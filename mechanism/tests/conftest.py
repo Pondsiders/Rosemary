@@ -164,7 +164,12 @@ async def _reset_state_between_tests() -> AsyncGenerator[None]:  # pyright: igno
 
     pool = await get_pool()
     async with pool.acquire() as conn:
-        _ = await conn.execute("TRUNCATE cortex.memories, cortex.diary RESTART IDENTITY CASCADE")
+        _ = await conn.execute(
+            """
+            TRUNCATE cortex.memories, cortex.diary, sage.messages, sage.conversations
+            RESTART IDENTITY CASCADE
+            """
+        )
 
     yield
 
