@@ -1,1 +1,1 @@
-"""Alpha's mechanism."""
+"""Rosemary's mechanism."""
