@@ -18,31 +18,24 @@ _pool: asyncpg.Pool | None = None
 
 
 async def _init_connection(conn: asyncpg.Connection) -> None:
-    """Per-connection setup: register pgvector against the extensions schema."""
-    await register_vector(conn, schema="extensions")
+    """Per-connection setup: register the pgvector codec (extension lives in public)."""
+    await register_vector(conn, schema="public")
 
 
 async def get_pool() -> asyncpg.Pool:
     """Return the process-singleton asyncpg pool, creating it on first call.
 
-    `server_settings={"search_path": "public, extensions"}` is passed
-    as a connection-startup parameter, which survives asyncpg's
-    between-borrow connection reset. Setting it via `SET search_path`
-    in the init callback gets wiped on reset; this doesn't.
+    pgvector is installed in the `public` schema, which is always on the
+    default search_path — so its operators (`<=>`, `<->`, `<#>`) and the
+    `vector` type resolve with no search_path manipulation at all. Infix
+    operators can only resolve via search_path, so `public` is the one
+    placement where they work natively; putting pgvector anywhere else
+    would force the search_path magic we deliberately avoid.
 
-    Production pgvector lives in the `extensions` schema, so the
-    operators (`<=>`, `<->`, `<#>`) and the `vector` type are there.
-    Putting `extensions` on the search path lets SQL read naturally
-    (`embedding <=> $1` instead of `OPERATOR(extensions.<=>)`).
-
-    SET search_path doesn't validate that the schemas exist; it's a
-    lookup hint, not an assertion. A future fork (Rosemary, etc.) whose
-    DB has pgvector in `public` will simply find the operators there
-    first and ignore the missing `extensions` entry.
-
-    Application tables are still explicitly schema-qualified everywhere
-    they're used (`cortex.memories`, `cortex.diary`, etc.) per the
-    "read-what-runs" rule. This setting is scoped to extension intrinsics.
+    Application tables are explicitly schema-qualified everywhere they're
+    used (`cortex.memories`, `cortex.diary`, `sage.messages`, etc.). The
+    only thing leaning on default resolution is the pgvector intrinsics in
+    public — exactly where the universal default belongs.
     """
     global _pool
     if _pool is None:
@@ -51,7 +44,6 @@ async def get_pool() -> asyncpg.Pool:
             min_size=1,
             max_size=4,
             init=_init_connection,
-            server_settings={"search_path": "public, extensions"},
         )
     return _pool
 

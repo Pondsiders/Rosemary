@@ -21,13 +21,13 @@ _SEMANTIC_SELECT = """
 SELECT id,
        content,
        created_at,
-       1 - (embedding_qwen <=> $1) AS score
+       1 - (embedding <=> $1) AS score
   FROM cortex.memories
  WHERE NOT forgotten
-   AND embedding_qwen IS NOT NULL
+   AND embedding IS NOT NULL
 """
 
-_SEMANTIC_ORDER = " ORDER BY embedding_qwen <=> $1 LIMIT "
+_SEMANTIC_ORDER = " ORDER BY embedding <=> $1 LIMIT "
 
 _INDEX_SELECT = """
 SELECT id,

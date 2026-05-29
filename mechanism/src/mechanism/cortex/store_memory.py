@@ -15,7 +15,7 @@ from mechanism.cortex.server import mcp
 from mechanism.db import get_pool
 
 _INSERT_SQL = """
-INSERT INTO cortex.memories (content, embedding_qwen, created_at)
+INSERT INTO cortex.memories (content, embedding, created_at)
 VALUES ($1, $2, $3)
 RETURNING id, created_at
 """
