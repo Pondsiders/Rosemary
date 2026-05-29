@@ -1,7 +1,7 @@
 """ASGI application factory.
 
-Starlette parent composing three FastMCP servers (cortex, mechanism,
-utils) over Streamable HTTP.
+Starlette parent composing four FastMCP servers (cortex, mechanism,
+sage, utils) over Streamable HTTP.
 
 ``/livez`` lives on the mechanism FastMCP server via ``@custom_route``
 and is reachable at ``/mechanism/livez``. Custom routes bypass FastMCP
@@ -27,6 +27,7 @@ from mechanism.llm import close_llm_clients
 from mechanism.mechanism import mcp as mechanism_mcp
 from mechanism.origin_validation import OriginValidationMiddleware
 from mechanism.redis_client import close_redis_client
+from mechanism.sage import mcp as sage_mcp
 from mechanism.settings import get_settings
 from mechanism.utils import mcp as utils_mcp
 
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
 
 _cortex_app = cortex_mcp.http_app(path="/mcp")
 _mechanism_app = mechanism_mcp.http_app(path="/mcp")
+_sage_app = sage_mcp.http_app(path="/mcp")
 _utils_app = utils_mcp.http_app(path="/mcp")
 
 
@@ -90,6 +92,7 @@ async def _lifespan(app: Starlette) -> AsyncGenerator[None]:
         async with AsyncExitStack() as stack:
             _ = await stack.enter_async_context(_cortex_app.lifespan(app))
             _ = await stack.enter_async_context(_mechanism_app.lifespan(app))
+            _ = await stack.enter_async_context(_sage_app.lifespan(app))
             _ = await stack.enter_async_context(_utils_app.lifespan(app))
             yield
     finally:
@@ -104,6 +107,7 @@ app = Starlette(
     routes=[
         Mount("/cortex", _cortex_app),
         Mount("/mechanism", _mechanism_app),
+        Mount("/sage", _sage_app),
         Mount("/utils", _utils_app),
     ],
 )
