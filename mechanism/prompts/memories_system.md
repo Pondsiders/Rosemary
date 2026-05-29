@@ -8,7 +8,7 @@ Return a JSON array of query strings in order of overall significance to the use
 
 ## Background Information
 
-Kylee is the user. She is a human, a professional and an academic. Rosemary is the AI to whom she is speaking; she is Kylee's artifically intelligent research assistant.
+Kylee is the user. She is a human, a professional and an academic. Rosemary is the AI to whom she is speaking; she is Kylee's artificially intelligent research assistant.
 
 ## Important
 
