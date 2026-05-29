@@ -19,8 +19,6 @@ from mechanism.settings import get_settings
 _chat_client: AsyncOpenAI | None = None
 _embedding_client: AsyncOpenAI | None = None
 
-_EMBEDDING_TASK = "Given a search query, retrieve relevant passages that are similar to the query"
-
 
 def get_chat_client() -> AsyncOpenAI:
     """Return the process-singleton chat client, creating it on first call."""
@@ -73,21 +71,39 @@ async def close_llm_clients() -> None:
 
 
 def format_query_for_embedding(query: str) -> str:
-    r"""Format a query string for Qwen 3 Embedding 4B's input.
+    """Format a query string for nomic-embed-text's input.
 
-    This function is coupled to a specific embedding model:
-    Qwen 3 Embedding 4B (https://huggingface.co/Qwen/Qwen3-Embedding-4B).
-    Its model card prescribes the `Instruct: <task>\nQuery:<text>` shape
-    for query inputs (documents are embedded without the prefix).
+    nomic-embed-text v1.5 uses *asymmetric* search prefixes: queries get
+    `search_query:` and documents get `search_document:` (see
+    `format_document_for_embedding`). The prefix is applied client-side,
+    matching how the stored corpus was embedded, so query and document
+    vectors share the same space.
 
-    If we swap embedding models, this function MUST be revisited
-    (alongside re-embedding cortex.memories with the new model). The
-    output here is wrong for any other embedding model.
+    If we swap embedding models, this and `format_document_for_embedding`
+    MUST be revisited together (and the corpus re-embedded with the new
+    model). The output here is wrong for any other embedding model.
 
     Args:
         query: The raw user query string.
 
     Returns:
-        The query reshaped for Qwen 3 Embedding 4B's input.
+        The query reshaped for nomic-embed-text's input.
     """
-    return f"Instruct: {_EMBEDDING_TASK}\nQuery:{query}"
+    return f"search_query: {query}"
+
+
+def format_document_for_embedding(content: str) -> str:
+    """Format a document/memory string for nomic-embed-text's input.
+
+    The asymmetric counterpart to `format_query_for_embedding`: stored
+    content is prefixed with `search_document:`. Memories embedded for
+    storage must use this so they land in the same vector space the
+    queries search against.
+
+    Args:
+        content: The raw memory/document text.
+
+    Returns:
+        The content reshaped for nomic-embed-text's input.
+    """
+    return f"search_document: {content}"

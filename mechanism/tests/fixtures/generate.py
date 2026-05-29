@@ -76,7 +76,9 @@ async def main() -> int:
     )
     response = await client.embeddings.create(
         model=settings.embedding_model,
-        input=unique_texts,
+        # Documents get nomic's `search_document:` prefix, matching production
+        # store_memory (mechanism.llm.format_document_for_embedding).
+        input=[f"search_document: {t}" for t in unique_texts],
     )
 
     text_to_vector: dict[str, str] = {

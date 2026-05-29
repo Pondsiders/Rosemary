@@ -54,7 +54,7 @@ async def store_memory(
     """
     response = await llm.get_embedding_client().embeddings.create(
         model=llm.get_embedding_model(),
-        input=[content],
+        input=[llm.format_document_for_embedding(content)],
         timeout=15.0,
     )
     embedding = np.asarray(response.data[0].embedding, dtype=np.float32)
